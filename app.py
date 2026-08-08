@@ -122,9 +122,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Earthquake Hazard & Safety API", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=[MY_URL], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-# Mounts the current directory (or a subfolder like "static")
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
-
 # ==========================================
 # 3. Schemas & Endpoints
 # ==========================================
