@@ -224,7 +224,7 @@
   function runSimulation() {
     const mag = parseFloat(document.getElementById('magSlider').value);
     
-    fetch('http://seismicinteractive.onrender.com/predict', {
+    fetch('http://seismicinteractive.onrender.com/api/data/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
