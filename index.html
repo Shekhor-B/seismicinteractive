@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seismic Hazard & Personal Safety Explorer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { display: flex; height: 100vh; background-color: #0b0f19; color: #e2e8f0; }
+    #sidebar { width: 420px; background: #111827; padding: 24px; overflow-y: auto; border-right: 1px solid #1f2937; z-index: 1000; }
+    #map { flex-grow: 1; height: 100%; }
+    
+    h1 { font-size: 1.25rem; font-weight: 700; color: #f3f4f6; margin-bottom: 6px; }
+    p.sub { font-size: 0.85rem; color: #9ca3af; margin-bottom: 20px; }
+    
+    .card { background: #1f2937; padding: 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #374151; }
+    .card h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    
+    label { display: block; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
+    input[type="text"] { width: 100%; padding: 10px; background: #111827; border: 1px solid #374151; border-radius: 6px; color: #fff; margin-bottom: 12px; }
+    .btn { width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+    .btn:hover { background: #1d4ed8; }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .metric-box { background: #111827; padding: 10px; border-radius: 6px; }
+    .metric-val { font-size: 1.1rem; font-weight: 700; color: #f3f4f6; }
+    .metric-lbl { font-size: 0.75rem; color: #9ca3af; }
+    
+    ul.hazard-list { list-style: none; margin-top: 8px; }
+    ul.hazard-list li { font-size: 0.82rem; color: #f87171; margin-bottom: 4px; padding-left: 12px; position: relative; }
+    ul.hazard-list li::before { content: "•"; position: absolute; left: 0; color: #ef4444; }
+
+    /* Evacuation Hub Sidebar Cards */
+    .facility-item { background: #111827; padding: 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #10b981; }
+    .facility-item.compromised { border-left-color: #ef4444; }
+    .facility-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; }
+    .facility-meta { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+
+    /* Map Custom Marker Styling */
+    .custom-icon { display: flex; align-items: center; justify-content: center; font-size: 18px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+    
+    /* True SVG Seismic Ripple Keyframes */
+    @keyframes ripple-geo {
+      0% {
+        stroke-width: 4px;
+        stroke-opacity: 0.9;
+        fill-opacity: 0.25;
+        transform: scale(0.05);
+        transform-origin: center;
+      }
+      100% {
+        stroke-width: 1px;
+        stroke-opacity: 0.0;
+        fill-opacity: 0.0;
+        transform: scale(1.0);
+        transform-origin: center;
+      }
+    }
+
+    .seismic-ripple-circle {
+      animation: ripple-geo 3s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+      pointer-events: none;
+      transform-origin: center;
+      transform-box: fill-box;
+    }
+
+    /* Fixed 2-Column Sequential Legend Grid */
+    .legend { position: absolute; bottom: 24px; right: 24px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(8px); padding: 16px; border-radius: 8px; border: 1px solid #374151; width: 320px; z-index: 1000; }
+    .legend-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; margin-bottom: 2px; }
+    .legend-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 10px; }
+    .bar-container { height: 10px; border-radius: 5px; background: linear-gradient(to right, #10b981, #84cc16, #a3e635, #facc15, #f59e0b, #fb923c, #ea580c, #ef4444, #dc2626, #7f1d1d); margin-bottom: 6px; }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #9ca3af; margin-bottom: 12px; }
+    
+    .legend-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+    .legend-col { display: flex; flex-direction: column; gap: 5px; }
+    .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #d1d5db; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>Seismic Hazard & Safety</h1>
+  <p class="sub">Click map to set epicenter or drag epicenter marker.</p>
+
+  <div class="card">
+    <label for="address">Your Residence / Address</label>
+    <div style="display:flex; gap: 8px;">
+      <input type="text" id="address" value="Los Angeles, California" />
+      <button class="btn" style="width: 90px;" onclick="geocodeAddress()">Locate</button>
+    </div>
+
+    <label for="magSlider">Simulated Earthquake Magnitude: <span id="magVal" style="color:#60a5fa;">M7.2</span></label>
+    <input type="range" id="magSlider" min="4.0" max="9.5" step="0.1" value="7.2" style="width:100%; margin-top:8px;" oninput="onMagnitudeChange(this.value)" />
+  </div>
+
+  <div class="card" id="personalCard">
+    <h3>🏠 Residence Hazard Profile</h3>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Distance to Quake: <span id="userDist" style="font-weight:700;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Critical Impact Risk: <span id="userProb" style="font-weight:700; color:#ef4444;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Structural Failure: <span id="userStatus" style="color:#f59e0b;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:8px;">Escape Feasibility: <span id="userEscape">--</span></div>
+    <label>Predicted Health Hazards:</label>
+    <ul class="hazard-list" id="userHazards"><li>Enter location to assess</li></ul>
+  </div>
+
+  <div class="card">
+    <h3>🛡️ Recommended Evacuation Facilities</h3>
+    <div id="facilityContainer"><p style="font-size:0.8rem; color:#9ca3af;">Calculating safe routes...</p></div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Regional HAZUS Metrics</h3>
+    <div class="metric-grid">
+      <div class="metric-box"><div class="metric-val" id="radiusVal">--</div><div class="metric-lbl">Shake Radius</div></div>
+      <div class="metric-box"><div class="metric-val" id="buildingsVal">--</div><div class="metric-lbl">Damaged Structures</div></div>
+      <div class="metric-box" style="grid-column: span 2;"><div class="metric-val" id="elVal" style="color:#f87171;">--</div><div class="metric-lbl">Economic Loss (EL)</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<!-- Legend with Sequential Column Ordering -->
+<div class="legend">
+  <div class="legend-title">ST-GNN Grid Risk Index</div>
+  <div class="legend-sub">Normalized Risk Tiers [0.00 – 1.00]</div>
+  <div class="bar-container"></div>
+  <div class="bar-labels">
+    <span>0.0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span>
+  </div>
+  <div class="legend-cols">
+    <!-- Left Column: 0.0 to 0.5 -->
+    <div class="legend-col">
+      <div class="legend-class"><div class="dot" style="background:#10b981;"></div><span><b>0.0-0.1:</b> Minimal</span></div>
+      <div class="legend-class"><div class="dot" style="background:#84cc16;"></div><span><b>0.1-0.2:</b> Light</span></div>
+      <div class="legend-class"><div class="dot" style="background:#a3e635;"></div><span><b>0.2-0.3:</b> Noticeable</span></div>
+      <div class="legend-class"><div class="dot" style="background:#facc15;"></div><span><b>0.3-0.4:</b> Low Mod</span></div>
+      <div class="legend-class"><div class="dot" style="background:#f59e0b;"></div><span><b>0.4-0.5:</b> Moderate</span></div>
+    </div>
+    <!-- Right Column: 0.5 to 1.0 -->
+    <div class="legend-col">
+      <div class="legend-class"><div class="dot" style="background:#fb923c;"></div><span><b>0.5-0.6:</b> Mod-High</span></div>
+      <div class="legend-class"><div class="dot" style="background:#ea580c;"></div><span><b>0.6-0.7:</b> High</span></div>
+      <div class="legend-class"><div class="dot" style="background:#ef4444;"></div><span><b>0.7-0.8:</b> Severe</span></div>
+      <div class="legend-class"><div class="dot" style="background:#dc2626;"></div><span><b>0.8-0.9:</b> Critical</span></div>
+      <div class="legend-class"><div class="dot" style="background:#7f1d1d;"></div><span><b>0.9-1.0:</b> Extreme</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const map = L.map('map').setView([33.9, -118.25], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  }).addTo(map);
+
+  // Custom Icon Definitions
+  const homeIcon = L.divIcon({ html: '<div class="custom-icon">🏠</div>', className: '', iconSize: [24, 24] });
+  const epicenterIcon = L.divIcon({ html: '<div class="custom-icon">💥</div>', className: '', iconSize: [28, 28] });
+  const hospitalIcon = L.divIcon({ html: '<div class="custom-icon">🏥</div>', className: '', iconSize: [22, 22] });
+  const shelterIcon = L.divIcon({ html: '<div class="custom-icon">🛡️</div>', className: '', iconSize: [22, 22] });
+
+  let userMarker = null, epicenterMarker = null, quakeCircle = null, rippleCircle = null;
+  let gridLayerGroup = L.layerGroup().addTo(map);
+  let hubLayerGroup = L.layerGroup().addTo(map);
+  let routeLayerGroup = L.layerGroup().addTo(map);
+
+  let currentEpicenter = { lat: 34.00, lon: -118.40 };
+  let currentUser = { lat: 33.8358, lon: -118.3406 };
+
+  function getRiskColor(risk) {
+    if (risk < 0.1) return '#10b981';
+    if (risk < 0.2) return '#84cc16';
+    if (risk < 0.3) return '#a3e635';
+    if (risk < 0.4) return '#facc15';
+    if (risk < 0.5) return '#f59e0b';
+    if (risk < 0.6) return '#fb923c';
+    if (risk < 0.7) return '#ea580c';
+    if (risk < 0.8) return '#ef4444';
+    if (risk < 0.9) return '#dc2626';
+    return '#7f1d1d';
+  }
+
+  // Epicenter Marker Setup
+  epicenterMarker = L.marker([currentEpicenter.lat, currentEpicenter.lon], { icon: epicenterIcon, draggable: true }).addTo(map);
+  epicenterMarker.bindTooltip("<b>Epicenter Target</b> (Click map or drag to set)", { permanent: false });
+  epicenterMarker.on('dragend', function(e) {
+    const pos = e.target.getLatLng();
+    currentEpicenter = { lat: pos.lat, lon: pos.lng };
+    runSimulation();
+  });
+
+  // Click map anywhere to set Epicenter
+  map.on('click', function(e) {
+    currentEpicenter = { lat: e.latlng.lat, lon: e.latlng.lng };
+    epicenterMarker.setLatLng([currentEpicenter.lat, currentEpicenter.lon]);
+    runSimulation();
+  });
+
+  function geocodeAddress() {
+    const addr = document.getElementById('address').value;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
+      .then(res => res.json())
+      .then(data => {
+        if(data && data.length > 0) {
+          currentUser = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+          if(userMarker) map.removeLayer(userMarker);
+          userMarker = L.marker([currentUser.lat, currentUser.lon], { icon: homeIcon }).addTo(map);
+          userMarker.bindTooltip("<b>Your Residence</b>", { permanent: true, direction: 'top' });
+          map.panTo([currentUser.lat, currentUser.lon]);
+          runSimulation();
+        }
+      });
+  }
+
+  function onMagnitudeChange(val) {
+    document.getElementById('magVal').innerText = `M${val}`;
+    runSimulation();
+  }
+
+  function runSimulation() {
+    const mag = parseFloat(document.getElementById('magSlider').value);
+    
+    fetch('http://127.0.0.1:8000/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        epicenter_x: currentEpicenter.lon,
+        epicenter_y: currentEpicenter.lat,
+        magnitude: mag,
+        user_x: currentUser.lon,
+        user_y: currentUser.lat
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      // 1. Regional Metrics
+      document.getElementById('radiusVal').innerText = `${data.radius_of_effect_km} km`;
+      document.getElementById('buildingsVal').innerText = data.damaged_buildings.toLocaleString();
+      document.getElementById('elVal').innerText = data.economic_loss;
+
+      // 2. Wave Boundary & Synchronized Pulsing Geographic Ripple
+      if (quakeCircle) map.removeLayer(quakeCircle);
+      if (rippleCircle) map.removeLayer(rippleCircle);
+
+      const radiusMeters = data.radius_of_effect_km * 1000;
+
+      // Main Hazard Limit Ring
+      quakeCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
+        color: '#ef4444',
+        fillColor: '#ef4444',
+        fillOpacity: 0.12,
+        radius: radiusMeters,
+        weight: 1.5
+      }).addTo(map);
+
+      // Expanding Pulsing Ripple Ring
+      rippleCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
+        color: '#f87171',
+        fillColor: '#ef4444',
+        radius: radiusMeters,
+        className: 'seismic-ripple-circle',
+        interactive: false
+      }).addTo(map);
+
+      // 3. Render Dynamic Grid Risk Points
+      gridLayerGroup.clearLayers();
+      data.predictions.forEach(pt => {
+        const color = getRiskColor(pt.predicted_risk);
+        L.circleMarker([pt.coords[1], pt.coords[0]], {
+          radius: 5, fillColor: color, color: color, weight: 0.5, opacity: 0.85, fillOpacity: 0.8
+        }).bindTooltip(`Risk Score: <b>${(pt.predicted_risk * 100).toFixed(1)}%</b>`).addTo(gridLayerGroup);
+      });
+
+      // 4. Render Evacuation Centers & High-Contrast White Dashed Routes
+      hubLayerGroup.clearLayers();
+      routeLayerGroup.clearLayers();
+      
+      const facilityContainer = document.getElementById('facilityContainer');
+      facilityContainer.innerHTML = '';
+
+      data.safe_evacuation_centers.forEach((hub, idx) => {
+        const icon = hub.type === "Hospital" ? hospitalIcon : shelterIcon;
+        const marker = L.marker([hub.lat, hub.lon], { icon: icon }).addTo(hubLayerGroup);
+
+        marker.bindTooltip(`<b>${hub.name}</b><br>Type: ${hub.type}<br>Distance: ${hub.distance_from_user_km} km<br>Status: <b>${hub.safety_rating}</b>`);
+
+        // Draw High-Contrast White Dashed Line with Underlay Shadow to Top 3 Facilities
+        if (idx < 3) {
+          const coords = [[currentUser.lat, currentUser.lon], [hub.lat, hub.lon]];
+          
+          // Underlay Shadow Polyline
+          L.polyline(coords, {
+            color: '#000000', weight: 5, opacity: 0.6
+          }).addTo(routeLayerGroup);
+
+          // Prominent White Dashed Polyline
+          L.polyline(coords, {
+            color: '#ffffff', weight: 3, dashArray: '6, 8', opacity: 0.95
+          }).addTo(routeLayerGroup);
+        }
+
+        // Render Sidebar Cards
+        const item = document.createElement('div');
+        item.className = `facility-item ${hub.is_outside_impact_zone ? '' : 'compromised'}`;
+        item.innerHTML = `
+          <div class="facility-title">${hub.type === "Hospital" ? '🏥' : '🛡️'} ${hub.name}</div>
+          <div class="facility-meta">Distance: <b>${hub.distance_from_user_km} km</b> | Status: <span style="color:${hub.is_outside_impact_zone ? '#10b981' : '#ef4444'}; font-weight:600;">${hub.safety_rating}</span></div>
+        `;
+        facilityContainer.appendChild(item);
+      });
+
+      // 5. Personal Hazard Analysis
+      if(data.personal_impact) {
+        document.getElementById('userDist').innerText = `${data.personal_impact.distance_to_epicenter_km} km (${data.personal_impact.in_hazard_zone ? 'Inside Hazard Zone' : 'Outside Hazard Zone'})`;
+        document.getElementById('userProb').innerText = data.personal_impact.critical_impact_probability;
+        document.getElementById('userStatus').innerText = data.personal_impact.structural_collapse_risk;
+        document.getElementById('userEscape').innerText = data.personal_impact.escape_feasibility;
+
+        const hList = document.getElementById('userHazards');
+        hList.innerHTML = '';
+        data.personal_impact.predicted_health_outcomes.forEach(h => {
+          const li = document.createElement('li');
+          li.innerText = h;
+          hList.appendChild(li);
+        });
+      }
+    });
+  }
+
+  // Initial Run
+  geocodeAddress();
+</script>
+</body>
+</html>

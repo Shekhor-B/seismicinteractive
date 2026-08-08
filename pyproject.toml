@@ -1,0 +1,11 @@
+[project]
+name = "projectsi"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.141.1",
+    "numpy>=2.5.1",
+    "pydantic>=2.13.4",
+    "torch>=2.13.0",
+    "uvicorn>=0.52.1",
+]
