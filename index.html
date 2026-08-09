@@ -8,7 +8,13 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { display: flex; flex-direction: row; height: 100vh; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; }
+    body { display: flex; flex-direction: row; height: 100vh; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; transition: background 0.25s ease, color 0.25s ease; }
+    body[data-theme="light"] { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #0f172a; }
+    body[data-theme="light"] #sidebar { background: rgba(255,255,255,0.95); color: #0f172a; border-right-color: rgba(15,23,42,0.08); box-shadow: 0 10px 30px rgba(15,23,42,0.14); }
+    body[data-theme="light"] .card, body[data-theme="light"] .metric-box, body[data-theme="light"] .facility-item, body[data-theme="light"] .legend, body[data-theme="light"] .fab, body[data-theme="light"] .status-strip, body[data-theme="light"] .theme-toggle { background: rgba(255,255,255,0.94); color: #0f172a; border-color: rgba(15,23,42,0.08); }
+    body[data-theme="light"] input[type="text"] { background: #f8fafc; color: #0f172a; border-color: rgba(15,23,42,0.12); }
+    body[data-theme="light"] .pill, body[data-theme="light"] .status-strip { background: rgba(37,99,235,0.12); color: #1d4ed8; }
+    body[data-theme="light"] .legend-sub, body[data-theme="light"] .metric-lbl, body[data-theme="light"] .facility-meta { color: #475569; }
     #sidebar { width: 420px; max-width: 100%; background: rgba(17, 24, 39, 0.96); padding: 20px; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.08); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
     #map { flex: 1; height: 100%; min-height: 280px; position: relative; }
     
@@ -17,7 +23,8 @@
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(37, 99, 235, 0.18); color: #93c5fd; font-size: 0.75rem; font-weight: 600; }
     p.sub { font-size: 0.82rem; color: #9ca3af; margin-bottom: 14px; }
     
-    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 18px rgba(0,0,0,0.18); }
+    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: transform .2s ease, box-shadow .2s ease; }
+    .card:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.24); }
     .card h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     
     label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
@@ -70,6 +77,13 @@
 
     /* Fixed 2-Column Sequential Legend Grid */
     .legend { position: absolute; bottom: 18px; right: 18px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(8px); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); width: min(320px, calc(100% - 24px)); z-index: 1000; box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+    .fab-row { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 1000; }
+    .fab { background: rgba(17,24,39,0.92); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 0.82rem; box-shadow: 0 8px 20px rgba(0,0,0,0.24); backdrop-filter: blur(8px); cursor: pointer; }
+    .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin-bottom: 10px; background: rgba(37,99,235,0.14); border: 1px solid rgba(96,165,250,0.28); border-radius: 999px; color: #bfdbfe; font-size: 0.78rem; }
+    .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.75rem; }
+    .loading { opacity: 0.7; position: relative; }
+    .loading::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent); animation: shimmer 1.2s infinite; }
+    @keyframes shimmer { 0% { transform: translateX(-100%);} 100% { transform: translateX(100%);} }
     .legend-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; margin-bottom: 2px; }
     .legend-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 10px; }
     .bar-container { height: 10px; border-radius: 5px; background: linear-gradient(to right, #10b981, #84cc16, #a3e635, #facc15, #f59e0b, #fb923c, #ea580c, #ef4444, #dc2626, #7f1d1d); margin-bottom: 6px; }
@@ -82,10 +96,11 @@
     #sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); max-height: 62vh; padding: 14px; }
     #map { height: 58vh; min-height: 58vh; }
     .legend { position: static; width: calc(100% - 20px); margin: 10px; }
+    .fab-row { top: 10px; right: 10px; }
   }
 
   @media (max-width: 600px) {
-    #sidebar { padding: 12px; }
+    #sidebar { padding: 12px; border-radius: 0 0 16px 16px; }
     .app-header { margin-bottom: 12px; }
     h1 { font-size: 1.05rem; }
     .card { padding: 12px; border-radius: 12px; }
@@ -94,6 +109,9 @@
     .legend-cols { grid-template-columns: 1fr; }
     .btn { padding: 12px; }
     input[type="text"] { padding: 12px; }
+    .fab-row { top: 8px; right: 8px; gap: 6px; }
+    .fab { padding: 7px 9px; font-size: 0.78rem; }
+    .status-strip { border-radius: 12px; font-size: 0.74rem; }
   }
     .legend-col { display: flex; flex-direction: column; gap: 5px; }
     .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #d1d5db; }
@@ -108,7 +126,15 @@
       <h1>Seismic Hazard & Safety</h1>
       <p class="sub">Tap the map or drag the epicenter marker.</p>
     </div>
-    <div class="pill">⚡ Live Risk</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="theme-toggle" onclick="toggleTheme()">🌗 Theme</button>
+      <div class="pill">⚡ Live Risk</div>
+    </div>
+  </div>
+
+  <div class="status-strip">
+    <span>🛰️ Regional seismic view active</span>
+    <span id="statusText">Awaiting simulation</span>
   </div>
 
   <div class="card">
@@ -147,7 +173,23 @@
   </div>
 </div>
 
-<div id="map"></div>
+<div id="map">
+  <div class="fab-row">
+    <button class="fab" onclick="focusHome()">🏠 Home</button>
+    <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
+  </div>
+</div>
+
+<div id="mobileSheet" class="legend" style="display:none; position:fixed; bottom:12px; left:12px; right:12px; width:auto; max-height: 50vh; overflow:auto;">
+  <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleMobileSheet()">
+    <div>
+      <div class="legend-title">Quick Insights</div>
+      <div class="legend-sub">Tap to expand or collapse the live summary.</div>
+    </div>
+    <div id="sheetToggleIcon" style="font-size:0.9rem; color:#93c5fd;">▾</div>
+  </div>
+  <div id="sheetContent" style="margin-top:8px;"></div>
+</div>
 
 <!-- Legend with Sequential Column Ordering -->
 <div class="legend">
@@ -244,10 +286,59 @@
 
   function onMagnitudeChange(val) {
     document.getElementById('magVal').innerText = `M${val}`;
+    document.getElementById('statusText').innerText = `Magnitude M${val}`;
     runSimulation();
   }
 
+  function focusHome() {
+    if (userMarker) map.setView([currentUser.lat, currentUser.lon], 11);
+  }
+
+  function focusEpicenter() {
+    map.setView([currentEpicenter.lat, currentEpicenter.lon], 11);
+  }
+
+  function toggleTheme() {
+    const root = document.body;
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  }
+
+  function toggleMobileSheet() {
+    const sheet = document.getElementById('mobileSheet');
+    const icon = document.getElementById('sheetToggleIcon');
+    if (window.innerWidth <= 900) {
+      const isCollapsed = sheet.style.display === 'none';
+      sheet.style.display = isCollapsed ? 'block' : 'none';
+      icon.innerText = isCollapsed ? '▾' : '▸';
+    }
+  }
+
+  function setLoadingState(isLoading) {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('loading', isLoading);
+    document.getElementById('statusText').innerText = isLoading ? 'Running simulation…' : 'Ready';
+  }
+
+  function updateSheetContent(data) {
+    const sheet = document.getElementById('mobileSheet');
+    const content = document.getElementById('sheetContent');
+    if (window.innerWidth <= 900) {
+      sheet.style.display = 'block';
+      content.innerHTML = `
+        <div style="font-size:0.84rem; color:#d1d5db; line-height:1.5;">
+          <div><b>Shake radius:</b> ${data.radius_of_effect_km.toFixed(1)} km</div>
+          <div><b>Damaged structures:</b> ${data.damaged_buildings.toLocaleString()}</div>
+          <div><b>Economic loss:</b> ${data.economic_loss}</div>
+        </div>
+      `;
+    } else {
+      sheet.style.display = 'none';
+    }
+  }
+
   function runSimulation() {
+    setLoadingState(true);
     const mag = parseFloat(document.getElementById('magSlider').value);
     const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
       ? 'http://127.0.0.1:8000'
@@ -266,6 +357,10 @@
     })
     .then(res => res.json())
     .then(data => {
+      setLoadingState(false);
+      document.getElementById('statusText').innerText = `Risk updated · ${data.radius_of_effect_km.toFixed(1)} km`;
+      updateSheetContent(data);
+
       // 1. Regional Metrics
       document.getElementById('radiusVal').innerText = `${data.radius_of_effect_km} km`;
       document.getElementById('buildingsVal').innerText = data.damaged_buildings.toLocaleString();
