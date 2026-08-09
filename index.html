@@ -223,8 +223,11 @@
 
   function runSimulation() {
     const mag = parseFloat(document.getElementById('magSlider').value);
-    
-    fetch('https://127.0.0.1/predict', {
+    const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://127.0.0.1:8000'
+      : '';
+
+    fetch(`${apiBase}/predict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
