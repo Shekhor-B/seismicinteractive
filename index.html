@@ -3,78 +3,199 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>USGS Earthquake Interactive Tool</title>
+  <title>USGS Earthquake Interactive Dashboard</title>
   
   <!-- Leaflet CSS for Map Rendering -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
     :root {
-      --bg-color: #f8fafc;
-      --card-bg: #ffffff;
-      --border-color: #cbd5e1;
+      --bg-color: #f1f5f9;
+      --panel-bg: #ffffff;
+      --border-color: #e2e8f0;
       --text-main: #0f172a;
       --text-muted: #64748b;
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
-      --accent: #d97706;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-color); color: var(--text-main); padding: 24px; }
-
-    .app-container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
     
-    header { border-bottom: 2px solid var(--border-color); padding-bottom: 12px; }
-    header h1 { font-size: 1.5rem; font-weight: 700; color: var(--text-main); }
+    body { 
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background-color: var(--bg-color); 
+      color: var(--text-main); 
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-    .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    header { 
+      background: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color); 
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+      z-index: 100;
+    }
 
-    .preset-container { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-    label { font-size: 0.875rem; font-weight: 600; color: var(--text-main); }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
+    .badge { font-size: 0.75rem; background: #eff6ff; color: var(--primary); padding: 4px 8px; border-radius: 4px; font-weight: 600; }
+
+    /* Main Desktop App Layout */
+    .app-viewport {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 57px);
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Controls & Filters */
+    .sidebar {
+      width: 400px;
+      min-width: 360px;
+      background: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 20px;
+      overflow-y: auto;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .input-group:last-child { margin-bottom: 0; }
+
+    label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
     
     select, input {
       width: 100%;
-      padding: 10px 12px;
+      padding: 9px 12px;
       border: 1px solid var(--border-color);
       border-radius: 6px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       background-color: #fff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    select:focus, input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    select:focus, input:focus { 
+      outline: none;
+      border-color: var(--primary); 
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
 
-    .filters-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .coordinates-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
 
-    .input-group { display: flex; flex-direction: column; gap: 6px; }
-    
-    #map { height: 480px; width: 100%; border-radius: 8px; border: 1px solid var(--border-color); }
+    .status-box {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      border-left: 3px solid var(--primary);
+      padding-left: 8px;
+      margin-top: 4px;
+    }
 
-    .status-text { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+    /* Right Main Canvas: Map */
+    .map-container {
+      flex: 1;
+      position: relative;
+      background: #e2e8f0;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Magnitude Legend on Desktop Map */
+    .map-legend {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      z-index: 1000;
+      font-size: 0.75rem;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .legend-item:last-child { margin-bottom: 0; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+    /* Responsive adjustment for small screens */
+    @media (max-width: 899px) {
+      body { overflow: auto; height: auto; }
+      .app-viewport { flex-direction: column; height: auto; }
+      .sidebar { width: 100%; min-width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
+      .map-container { height: 500px; }
+    }
   </style>
 </head>
 <body>
 
-<div class="app-container">
-  <header>
-    <h1>USGS Earthquake Live Monitor &amp; Historical Extreme Filter</h1>
-  </header>
+<header>
+  <h1>USGS Earthquake Interactive Dashboard</h1>
+  <span class="badge">Live GeoJSON &amp; FDSNWS API</span>
+</header>
 
-  <!-- Controls Panel -->
-  <section class="card">
-    <div class="preset-container">
-      <label for="earthquake-select">Preset Event Feed Selector</label>
-      <select id="earthquake-select">
-        <option value="">Fetching USGS live feed &amp; 10-year maximum...</option>
-      </select>
-      <span id="status-message" class="status-text">Connecting to USGS GeoJSON API...</span>
+<div class="app-viewport">
+  
+  <!-- Left Sidebar Controls -->
+  <aside class="sidebar">
+    
+    <!-- Preset Selection -->
+    <div class="card">
+      <div class="card-title">Preset Event Selection</div>
+      <div class="input-group">
+        <label for="earthquake-select">Select Real-Time / Historic Event</label>
+        <select id="earthquake-select">
+          <option value="">Fetching USGS feed &amp; 10-yr extreme...</option>
+        </select>
+      </div>
+      <div id="status-message" class="status-box">Connecting to USGS servers...</div>
     </div>
 
-    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 16px 0;" />
-
-    <div class="filters-grid">
+    <!-- Active Filters & Metadata -->
+    <div class="card">
+      <div class="card-title">Active Event Filters</div>
+      
       <div class="input-group">
-        <label for="filter-location">Location</label>
+        <label for="filter-location">Location Name / Region</label>
         <input type="text" id="filter-location" placeholder="e.g. Southern California" />
       </div>
 
@@ -83,48 +204,84 @@
         <input type="number" id="filter-magnitude" step="0.1" placeholder="e.g. 6.5" />
       </div>
 
-      <div class="input-group">
-        <label for="filter-latitude">Latitude</label>
-        <input type="number" id="filter-latitude" step="0.0001" placeholder="e.g. 34.0522" />
+      <div class="coordinates-grid">
+        <div class="input-group">
+          <label for="filter-latitude">Latitude (°N)</label>
+          <input type="number" id="filter-latitude" step="0.0001" placeholder="34.0522" />
+        </div>
+        <div class="input-group">
+          <label for="filter-longitude">Longitude (°E)</label>
+          <input type="number" id="filter-longitude" step="0.0001" placeholder="-118.2437" />
+        </div>
       </div>
-
-      <div class="input-group">
-        <label for="filter-longitude">Longitude</label>
-        <input type="number" id="filter-longitude" step="0.0001" placeholder="e.g. -118.2437" />
-      </div>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">💡 Tip: Click anywhere on the map to manually set coordinates.</span>
     </div>
-  </section>
 
-  <!-- Map Display Container -->
-  <section class="card" style="padding: 12px;">
+  </aside>
+
+  <!-- Right Map Viewport -->
+  <main class="map-container">
     <div id="map"></div>
-  </section>
+
+    <!-- Interactive Visual Legend -->
+    <div class="map-legend">
+      <strong style="display:block; margin-bottom:6px;">Magnitude Scale</strong>
+      <div class="legend-item"><span class="dot" style="background:#dc2626;"></span> M7.0+ (Major)</div>
+      <div class="legend-item"><span class="dot" style="background:#ea580c;"></span> M6.0 - 6.9 (Strong)</div>
+      <div class="legend-item"><span class="dot" style="background:#f59e0b;"></span> M4.0 - 5.9 (Moderate)</div>
+      <div class="legend-item"><span class="dot" style="background:#10b981;"></span> &lt; M4.0 (Minor)</div>
+    </div>
+  </main>
+
 </div>
 
 <!-- Leaflet JS CDN -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Main App & USGS Integration Script -->
+<!-- Desktop Application Logic -->
 <script type="module">
   const USGS_BASE_URL = "https://earthquake.usgs.gov";
   let map, activeMarker;
   const loadedEarthquakes = {};
 
-  // Initialize Leaflet Map
-  function initMap() {
-    map = L.map("map").setView([20, 0], 2);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+  // Utility: Color mapping based on magnitude
+  function getMagnitudeColor(mag) {
+    if (mag >= 7.0) return "#dc2626"; // Red
+    if (mag >= 6.0) return "#ea580c"; // Orange
+    if (mag >= 4.0) return "#f59e0b"; // Amber
+    return "#10b981";                // Green
   }
 
-  // Parses USGS raw GeoJSON into structured format
+  // Initialize Map with desktop resize handling
+  function initMap() {
+    map = L.map("map", { zoomControl: true }).setView([20, 0], 2);
+    
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Click map to manually set filter coordinates
+    map.on("click", (e) => {
+      const { lat, lng } = e.latlng;
+      document.getElementById("filter-latitude").value = lat.toFixed(4);
+      document.getElementById("filter-longitude").value = lng.toFixed(4);
+      
+      const currentLoc = document.getElementById("filter-location").value || "Custom Selected Pin";
+      const currentMag = parseFloat(document.getElementById("filter-magnitude").value) || 3.0;
+
+      updateMapMarker(lat, lng, currentLoc, currentMag, "User Selected Location");
+    });
+  }
+
+  // Parses raw USGS JSON
   function parseEarthquakeFeature(feature) {
     return {
       id: feature.id,
       location: feature.properties.place || "Unknown Location",
       magnitude: feature.properties.mag,
       time: new Date(feature.properties.time),
+      url: feature.properties.url,
       coordinates: {
         longitude: feature.geometry.coordinates[0],
         latitude: feature.geometry.coordinates[1],
@@ -133,16 +290,15 @@
     };
   }
 
-  // API Call 1: Live Feed (Past 24h, M2.5+)
+  // API Call 1: Live 24h Feed (M2.5+)
   async function fetchRecentEarthquakes() {
-    const feedUrl = `${USGS_BASE_URL}/earthquakes/feed/v1.0/summary/2.5_day.geojson`;
-    const response = await fetch(feedUrl);
-    if (!response.ok) throw new Error("Failed to fetch live feed");
+    const response = await fetch(`${USGS_BASE_URL}/earthquakes/feed/v1.0/summary/2.5_day.geojson`);
+    if (!response.ok) throw new Error("Failed to load USGS live feed.");
     const data = await response.json();
     return data.features.map(parseEarthquakeFeature);
   }
 
-  // API Call 2: Max Magnitude Quake over last 10 years
+  // API Call 2: 10-Year Max Magnitude Query
   async function fetchMostSevere10Year() {
     const now = new Date();
     const tenYearsAgo = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
@@ -150,39 +306,90 @@
 
     const queryUrl = `${USGS_BASE_URL}/fdsnws/event/1/query?format=geojson&starttime=${starttime}&orderby=magnitude&limit=1`;
     const response = await fetch(queryUrl);
-    if (!response.ok) throw new Error("Failed to query historical data");
+    if (!response.ok) throw new Error("Failed to query historical data.");
 
     const data = await response.json();
     if (!data.features || data.features.length === 0) return null;
     return parseEarthquakeFeature(data.features[0]);
   }
 
-  // Auto-populates input fields and moves map marker
-  function selectEarthquakeFilter(quake) {
+  // Dynamically updates marker and view
+  function updateMapMarker(lat, lng, locationText, mag, subtitle = "") {
+    if (isNaN(lat) || isNaN(lng)) return;
+
+    const color = getMagnitudeColor(mag);
+    const radius = Math.max(8, Math.min(mag * 4, 30));
+
+    if (activeMarker) map.removeLayer(activeMarker);
+
+    activeMarker = L.circleMarker([lat, lng], {
+      radius: radius,
+      fillColor: color,
+      color: "#ffffff",
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.8
+    }).addTo(map);
+
+    const popupContent = `
+      <div style="font-family: system-ui, sans-serif; min-width: 180px;">
+        <h4 style="margin-bottom:4px; color:${color}">${locationText}</h4>
+        <b>Magnitude:</b> M${mag}<br>
+        <b>Coordinates:</b> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
+        ${subtitle ? `<small style="color:#64748b">${subtitle}</small>` : ""}
+      </div>
+    `;
+
+    activeMarker.bindPopup(popupContent).openPopup();
+    map.flyTo([lat, lng], Math.max(map.getZoom(), 5), { duration: 1.2 });
+  }
+
+  // Synchronizes filter inputs and updates map
+  function applyEarthquakeSelection(quake) {
     if (!quake) return;
 
-    // Populate Filter Inputs
     document.getElementById("filter-location").value = quake.location;
     document.getElementById("filter-magnitude").value = quake.magnitude;
     document.getElementById("filter-latitude").value = quake.coordinates.latitude;
     document.getElementById("filter-longitude").value = quake.coordinates.longitude;
 
-    // Update Map
-    const { latitude, longitude } = quake.coordinates;
-    map.flyTo([latitude, longitude], 6);
-
-    if (activeMarker) map.removeLayer(activeMarker);
-
-    activeMarker = L.marker([latitude, longitude])
-      .addTo(map)
-      .bindPopup(`<b>${quake.location}</b><br>Magnitude: M${quake.magnitude}<br>Time: ${quake.time.toLocaleString()}`)
-      .openPopup();
+    updateMapMarker(
+      quake.coordinates.latitude,
+      quake.coordinates.longitude,
+      quake.location,
+      quake.magnitude,
+      `Recorded: ${quake.time.toLocaleString()}`
+    );
   }
 
-  // Main Loader & Event Listener Wiring
+  // Add listeners for manually edited input boxes
+  function bindInputListeners() {
+    const latInput = document.getElementById("filter-latitude");
+    const lngInput = document.getElementById("filter-longitude");
+    const magInput = document.getElementById("filter-magnitude");
+    const locInput = document.getElementById("filter-location");
+
+    const handleInputChange = () => {
+      const lat = parseFloat(latInput.value);
+      const lng = parseFloat(lngInput.value);
+      const mag = parseFloat(magInput.value) || 3.0;
+      const loc = locInput.value || "Custom Input Point";
+
+      if (!isNaN(lat) && !isNaN(lng)) {
+        updateMapMarker(lat, lng, loc, mag, "Manual Filter Input");
+      }
+    };
+
+    [latInput, lngInput, magInput, locInput].forEach(input => {
+      input.addEventListener("change", handleInputChange);
+    });
+  }
+
+  // Main Loader Initialization
   async function init() {
     initMap();
-    
+    bindInputListeners();
+
     const selector = document.getElementById("earthquake-select");
     const statusText = document.getElementById("status-message");
 
@@ -192,47 +399,47 @@
         fetchMostSevere10Year()
       ]);
 
-      selector.innerHTML = `<option value="">-- Choose an Earthquake Preset --</option>`;
+      selector.innerHTML = `<option value="">-- Choose Preset Earthquake --</option>`;
 
-      // 1. Add Most Severe 10-Year Quake Option
+      // 1. Add 10-Year Max Event
       if (mostSevereQuake) {
         loadedEarthquakes["most-severe-10yr"] = mostSevereQuake;
         const opt = document.createElement("option");
         opt.value = "most-severe-10yr";
-        opt.textContent = `⭐ Most Severe (Last 10 Yrs): ${mostSevereQuake.location} (M${mostSevereQuake.magnitude})`;
+        opt.textContent = `⭐ 10-Year Max: ${mostSevereQuake.location} (M${mostSevereQuake.magnitude})`;
         selector.appendChild(opt);
       }
 
-      // 2. Add Recent Earthquakes Options
+      // 2. Add Live Feed Events
       recentQuakes.forEach((quake, idx) => {
         loadedEarthquakes[quake.id] = quake;
         const opt = document.createElement("option");
         opt.value = quake.id;
-        opt.textContent = `${idx === 0 ? "⚡ [Latest Event] " : ""}${quake.location} (M${quake.magnitude})`;
+        opt.textContent = `${idx === 0 ? "⚡ [Latest] " : ""}${quake.location} (M${quake.magnitude})`;
         selector.appendChild(opt);
       });
 
-      // 3. Automatically select the MOST RECENT quake on load
+      // 3. Auto-select latest event by default
       if (recentQuakes.length > 0) {
         const latest = recentQuakes[0];
         selector.value = latest.id;
-        selectEarthquakeFilter(latest);
-        statusText.textContent = `Auto-selected latest earthquake from USGS feed. (${recentQuakes.length} total live feed events loaded)`;
+        applyEarthquakeSelection(latest);
+        statusText.textContent = `Loaded ${recentQuakes.length} recent USGS events. Auto-selected latest event.`;
       }
 
-      // 4. Change Handler for Dropdown Selection
+      // 4. Selector Change Handler
       selector.addEventListener("change", (e) => {
         const quake = loadedEarthquakes[e.target.value];
         if (quake) {
-          selectEarthquakeFilter(quake);
-          statusText.textContent = `Applied filter for: ${quake.location} (M${quake.magnitude})`;
+          applyEarthquakeSelection(quake);
+          statusText.textContent = `Selected: ${quake.location} (M${quake.magnitude})`;
         }
       });
 
     } catch (err) {
       console.error(err);
-      selector.innerHTML = `<option value="">Failed to load USGS feed</option>`;
-      statusText.textContent = "Error fetching real-time data from USGS servers.";
+      selector.innerHTML = `<option value="">Error loading feed</option>`;
+      statusText.textContent = "Failed to fetch data from USGS servers.";
     }
   }
 
