@@ -184,8 +184,8 @@
 
 <div id="map">
   <div class="fab-row">
-    <button class="fab" id="dataToggleBtn" onclick="toggleDataPanel()">📊 View data</button>
-    <button class="fab" onclick="focusHome()">🏠 Home</button>
+    <button class="fab" id="dataToggleBtn" onclick="event.stopPropagation(); toggleDataPanel()">📊 View data</button>
+    <button class="fab" id="homeButton" onclick="event.stopPropagation(); event.preventDefault(); focusHome()">🏠 Home</button>
   </div>
 </div>
 
@@ -307,6 +307,10 @@
     map.setView([currentEpicenter.lat, currentEpicenter.lon], 11);
   }
 
+  function stopMapClick(event) {
+    if (event) event.stopPropagation();
+  }
+
   function setDataPanelState(isOpen) {
     document.body.setAttribute('data-panel', isOpen ? 'expanded' : 'collapsed');
     const btn = document.getElementById('dataToggleBtn');
@@ -316,6 +320,17 @@
   function toggleDataPanel(force) {
     const shouldOpen = typeof force === 'boolean' ? force : document.body.getAttribute('data-panel') !== 'expanded';
     setDataPanelState(shouldOpen);
+  }
+
+  document.querySelectorAll('.fab').forEach(btn => {
+    btn.addEventListener('click', stopMapClick);
+    btn.addEventListener('mousedown', stopMapClick);
+  });
+
+  const homeButton = document.getElementById('homeButton');
+  if (homeButton) {
+    homeButton.addEventListener('click', stopMapClick);
+    homeButton.addEventListener('mousedown', stopMapClick);
   }
 
   function toggleMobileSheet() {
