@@ -1,450 +1,462 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>USGS Earthquake Interactive Dashboard</title>
-  
-  <!-- Leaflet CSS for Map Rendering -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seismic Hazard & Personal Safety Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    :root {
-      --bg-color: #f1f5f9;
-      --panel-bg: #ffffff;
-      --border-color: #e2e8f0;
-      --text-main: #0f172a;
-      --text-muted: #64748b;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
-      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { display: flex; flex-direction: row; height: 100vh; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; transition: background 0.25s ease, color 0.25s ease; }
+    body[data-theme="light"] { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #0f172a; }
+    body[data-theme="light"] #sidebar { background: rgba(255,255,255,0.95); color: #0f172a; border-right-color: rgba(15,23,42,0.08); box-shadow: 0 10px 30px rgba(15,23,42,0.14); }
+    body[data-theme="light"] .card, body[data-theme="light"] .metric-box, body[data-theme="light"] .facility-item, body[data-theme="light"] .legend, body[data-theme="light"] .fab, body[data-theme="light"] .status-strip, body[data-theme="light"] .theme-toggle { background: rgba(255,255,255,0.94); color: #0f172a; border-color: rgba(15,23,42,0.08); }
+    body[data-theme="light"] input[type="text"] { background: #f8fafc; color: #0f172a; border-color: rgba(15,23,42,0.12); }
+    body[data-theme="light"] .pill, body[data-theme="light"] .status-strip { background: rgba(37,99,235,0.12); color: #1d4ed8; }
+    body[data-theme="light"] .legend-sub, body[data-theme="light"] .metric-lbl, body[data-theme="light"] .facility-meta { color: #475569; }
+    #sidebar { width: 420px; max-width: 100%; background: rgba(17, 24, 39, 0.96); padding: 20px; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.08); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+    #map { flex: 1; height: 100%; min-height: 280px; position: relative; }
     
-    body { 
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-      background-color: var(--bg-color); 
-      color: var(--text-main); 
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    header { 
-      background: var(--panel-bg);
-      border-bottom: 1px solid var(--border-color); 
-      padding: 14px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: var(--shadow-sm);
-      z-index: 100;
-    }
-
-    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
-    .badge { font-size: 0.75rem; background: #eff6ff; color: var(--primary); padding: 4px 8px; border-radius: 4px; font-weight: 600; }
-
-    /* Main Desktop App Layout */
-    .app-viewport {
-      display: flex;
-      flex: 1;
-      height: calc(100vh - 57px);
-      overflow: hidden;
-    }
-
-    /* Left Sidebar: Controls & Filters */
-    .sidebar {
-      width: 400px;
-      min-width: 360px;
-      background: var(--panel-bg);
-      border-right: 1px solid var(--border-color);
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      padding: 20px;
-      overflow-y: auto;
-      box-shadow: var(--shadow-sm);
-    }
-
-    .card {
-      background: #f8fafc;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-    }
-
-    .card-title {
-      font-size: 0.875rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-muted);
-      margin-bottom: 12px;
-    }
-
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-
-    .input-group:last-child { margin-bottom: 0; }
-
-    label { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    h1 { font-size: 1.2rem; font-weight: 700; color: #f3f4f6; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(37, 99, 235, 0.18); color: #93c5fd; font-size: 0.75rem; font-weight: 600; }
+    p.sub { font-size: 0.82rem; color: #9ca3af; margin-bottom: 14px; }
     
-    select, input {
-      width: 100%;
-      padding: 9px 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-size: 0.9rem;
-      background-color: #fff;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: transform .2s ease, box-shadow .2s ease; }
+    .card:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.24); }
+    .card h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    
+    label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
+    input[type="text"] { width: 100%; padding: 11px 12px; background: rgba(17,24,39,0.9); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff; margin-bottom: 10px; }
+    .btn { width: 100%; padding: 11px 12px; background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .metric-box { background: rgba(17,24,39,0.9); padding: 10px; border-radius: 10px; }
+    .metric-val { font-size: 1.1rem; font-weight: 700; color: #f3f4f6; }
+    .metric-lbl { font-size: 0.75rem; color: #9ca3af; }
+    
+    ul.hazard-list { list-style: none; margin-top: 8px; }
+    ul.hazard-list li { font-size: 0.82rem; color: #f87171; margin-bottom: 4px; padding-left: 12px; position: relative; }
+    ul.hazard-list li::before { content: "•"; position: absolute; left: 0; color: #ef4444; }
+
+    /* Evacuation Hub Sidebar Cards */
+    .facility-item { background: rgba(17,24,39,0.95); padding: 10px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #10b981; }
+    .facility-item.compromised { border-left-color: #ef4444; }
+    .facility-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; }
+    .facility-meta { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+
+    /* Map Custom Marker Styling */
+    .custom-icon { display: flex; align-items: center; justify-content: center; font-size: 18px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+    
+    /* True SVG Seismic Ripple Keyframes */
+    @keyframes ripple-geo {
+      0% {
+        stroke-width: 4px;
+        stroke-opacity: 0.9;
+        fill-opacity: 0.25;
+        transform: scale(0.05);
+        transform-origin: center;
+      }
+      100% {
+        stroke-width: 1px;
+        stroke-opacity: 0.0;
+        fill-opacity: 0.0;
+        transform: scale(1.0);
+        transform-origin: center;
+      }
     }
 
-    select:focus, input:focus { 
-      outline: none;
-      border-color: var(--primary); 
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    .seismic-ripple-circle {
+      animation: ripple-geo 3s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+      pointer-events: none;
+      transform-origin: center;
+      transform-box: fill-box;
     }
 
-    .coordinates-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
+    /* Fixed 2-Column Sequential Legend Grid */
+    .legend { position: absolute; bottom: 18px; right: 18px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(8px); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); width: min(320px, calc(100% - 24px)); z-index: 1000; box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+    .fab-row { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 1000; }
+    .fab { background: rgba(17,24,39,0.92); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 0.82rem; box-shadow: 0 8px 20px rgba(0,0,0,0.24); backdrop-filter: blur(8px); cursor: pointer; }
+    .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin-bottom: 10px; background: rgba(37,99,235,0.14); border: 1px solid rgba(96,165,250,0.28); border-radius: 999px; color: #bfdbfe; font-size: 0.78rem; }
+    .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.75rem; }
+    .loading { opacity: 0.7; position: relative; }
+    .loading::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent); animation: shimmer 1.2s infinite; }
+    @keyframes shimmer { 0% { transform: translateX(-100%);} 100% { transform: translateX(100%);} }
+    .legend-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; margin-bottom: 2px; }
+    .legend-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 10px; }
+    .bar-container { height: 10px; border-radius: 5px; background: linear-gradient(to right, #10b981, #84cc16, #a3e635, #facc15, #f59e0b, #fb923c, #ea580c, #ef4444, #dc2626, #7f1d1d); margin-bottom: 6px; }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #9ca3af; margin-bottom: 12px; }
+    
+    .legend-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
 
-    .status-box {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      line-height: 1.4;
-      border-left: 3px solid var(--primary);
-      padding-left: 8px;
-      margin-top: 4px;
-    }
+  @media (max-width: 900px) {
+    body { flex-direction: column; height: auto; min-height: 100vh; }
+    #sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); max-height: 62vh; padding: 14px; }
+    #map { height: 58vh; min-height: 58vh; }
+    .legend { position: static; width: calc(100% - 20px); margin: 10px; }
+    .fab-row { top: 10px; right: 10px; }
+  }
 
-    /* Right Main Canvas: Map */
-    .map-container {
-      flex: 1;
-      position: relative;
-      background: #e2e8f0;
-    }
-
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-
-    /* Magnitude Legend on Desktop Map */
-    .map-legend {
-      position: absolute;
-      bottom: 24px;
-      right: 24px;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 12px 16px;
-      border-radius: 8px;
-      box-shadow: var(--shadow-md);
-      border: 1px solid var(--border-color);
-      z-index: 1000;
-      font-size: 0.75rem;
-    }
-
-    .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .legend-item:last-child { margin-bottom: 0; }
-    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-
-    /* Responsive adjustment for small screens */
-    @media (max-width: 899px) {
-      body { overflow: auto; height: auto; }
-      .app-viewport { flex-direction: column; height: auto; }
-      .sidebar { width: 100%; min-width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
-      .map-container { height: 500px; }
-    }
+  @media (max-width: 600px) {
+    #sidebar { padding: 12px; border-radius: 0 0 16px 16px; }
+    .app-header { margin-bottom: 12px; }
+    h1 { font-size: 1.05rem; }
+    .card { padding: 12px; border-radius: 12px; }
+    .metric-grid { grid-template-columns: 1fr; }
+    .metric-box[style*="grid-column: span 2"] { grid-column: span 1; }
+    .legend-cols { grid-template-columns: 1fr; }
+    .btn { padding: 12px; }
+    input[type="text"] { padding: 12px; }
+    .fab-row { top: 8px; right: 8px; gap: 6px; }
+    .fab { padding: 7px 9px; font-size: 0.78rem; }
+    .status-strip { border-radius: 12px; font-size: 0.74rem; }
+  }
+    .legend-col { display: flex; flex-direction: column; gap: 5px; }
+    .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #d1d5db; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>USGS Earthquake Interactive Dashboard</h1>
-  <span class="badge">Live GeoJSON &amp; FDSNWS API</span>
-</header>
+<div id="sidebar">
+  <div class="app-header">
+    <div>
+      <h1>Seismic Hazard & Safety</h1>
+      <p class="sub">Tap the map or drag the epicenter marker.</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button class="theme-toggle" onclick="toggleTheme()">🌗 Theme</button>
+      <div class="pill">⚡ Live Risk</div>
+    </div>
+  </div>
 
-<div class="app-viewport">
-  
-  <!-- Left Sidebar Controls -->
-  <aside class="sidebar">
-    
-    <!-- Preset Selection -->
-    <div class="card">
-      <div class="card-title">Preset Event Selection</div>
-      <div class="input-group">
-        <label for="earthquake-select">Select Real-Time / Historic Event</label>
-        <select id="earthquake-select">
-          <option value="">Fetching USGS feed &amp; 10-yr extreme...</option>
-        </select>
-      </div>
-      <div id="status-message" class="status-box">Connecting to USGS servers...</div>
+  <div class="status-strip">
+    <span>🛰️ Regional seismic view active</span>
+    <span id="statusText">Awaiting simulation</span>
+  </div>
+
+  <div class="card">
+    <label for="address">Your Residence / Address</label>
+    <div style="display:flex; gap: 8px;">
+      <input type="text" id="address" value="Los Angeles, California" />
+      <button class="btn" style="width: 90px;" onclick="geocodeAddress()">Locate</button>
     </div>
 
-    <!-- Active Filters & Metadata -->
-    <div class="card">
-      <div class="card-title">Active Event Filters</div>
-      
-      <div class="input-group">
-        <label for="filter-location">Location Name / Region</label>
-        <input type="text" id="filter-location" placeholder="e.g. Southern California" />
-      </div>
+    <label for="magSlider">Simulated Earthquake Magnitude: <span id="magVal" style="color:#60a5fa;">M7.2</span></label>
+    <input type="range" id="magSlider" min="4.0" max="9.5" step="0.1" value="7.2" style="width:100%; margin-top:8px;" oninput="onMagnitudeChange(this.value)" />
+  </div>
 
-      <div class="input-group">
-        <label for="filter-magnitude">Magnitude (M)</label>
-        <input type="number" id="filter-magnitude" step="0.1" placeholder="e.g. 6.5" />
-      </div>
+  <div class="card" id="personalCard">
+    <h3>🏠 Residence Hazard Profile</h3>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Distance to Quake: <span id="userDist" style="font-weight:700;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Critical Impact Risk: <span id="userProb" style="font-weight:700; color:#ef4444;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:6px;">Structural Failure: <span id="userStatus" style="color:#f59e0b;">--</span></div>
+    <div style="font-size:0.85rem; margin-bottom:8px;">Escape Feasibility: <span id="userEscape">--</span></div>
+    <label>Predicted Health Hazards:</label>
+    <ul class="hazard-list" id="userHazards"><li>Enter location to assess</li></ul>
+  </div>
 
-      <div class="coordinates-grid">
-        <div class="input-group">
-          <label for="filter-latitude">Latitude (°N)</label>
-          <input type="number" id="filter-latitude" step="0.0001" placeholder="34.0522" />
-        </div>
-        <div class="input-group">
-          <label for="filter-longitude">Longitude (°E)</label>
-          <input type="number" id="filter-longitude" step="0.0001" placeholder="-118.2437" />
-        </div>
-      </div>
-      <span style="font-size: 0.75rem; color: var(--text-muted);">💡 Tip: Click anywhere on the map to manually set coordinates.</span>
+  <div class="card">
+    <h3>🛡️ Recommended Evacuation Facilities</h3>
+    <div id="facilityContainer"><p style="font-size:0.8rem; color:#9ca3af;">Calculating safe routes...</p></div>
+  </div>
+
+  <div class="card">
+    <h3>📊 Regional HAZUS Metrics</h3>
+    <div class="metric-grid">
+      <div class="metric-box"><div class="metric-val" id="radiusVal">--</div><div class="metric-lbl">Shake Radius</div></div>
+      <div class="metric-box"><div class="metric-val" id="buildingsVal">--</div><div class="metric-lbl">Damaged Structures</div></div>
+      <div class="metric-box" style="grid-column: span 2;"><div class="metric-val" id="elVal" style="color:#f87171;">--</div><div class="metric-lbl">Economic Loss (EL)</div></div>
     </div>
-
-  </aside>
-
-  <!-- Right Map Viewport -->
-  <main class="map-container">
-    <div id="map"></div>
-
-    <!-- Interactive Visual Legend -->
-    <div class="map-legend">
-      <strong style="display:block; margin-bottom:6px;">Magnitude Scale</strong>
-      <div class="legend-item"><span class="dot" style="background:#dc2626;"></span> M7.0+ (Major)</div>
-      <div class="legend-item"><span class="dot" style="background:#ea580c;"></span> M6.0 - 6.9 (Strong)</div>
-      <div class="legend-item"><span class="dot" style="background:#f59e0b;"></span> M4.0 - 5.9 (Moderate)</div>
-      <div class="legend-item"><span class="dot" style="background:#10b981;"></span> &lt; M4.0 (Minor)</div>
-    </div>
-  </main>
-
+  </div>
 </div>
 
-<!-- Leaflet JS CDN -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div id="map">
+  <div class="fab-row">
+    <button class="fab" onclick="focusHome()">🏠 Home</button>
+    <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
+  </div>
+</div>
 
-<!-- Desktop Application Logic -->
-<script type="module">
-  const USGS_BASE_URL = "https://earthquake.usgs.gov";
-  let map, activeMarker;
-  const loadedEarthquakes = {};
+<div id="mobileSheet" class="legend" style="display:none; position:fixed; bottom:12px; left:12px; right:12px; width:auto; max-height: 50vh; overflow:auto;">
+  <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleMobileSheet()">
+    <div>
+      <div class="legend-title">Quick Insights</div>
+      <div class="legend-sub">Tap to expand or collapse the live summary.</div>
+    </div>
+    <div id="sheetToggleIcon" style="font-size:0.9rem; color:#93c5fd;">▾</div>
+  </div>
+  <div id="sheetContent" style="margin-top:8px;"></div>
+</div>
 
-  // Utility: Color mapping based on magnitude
-  function getMagnitudeColor(mag) {
-    if (mag >= 7.0) return "#dc2626"; // Red
-    if (mag >= 6.0) return "#ea580c"; // Orange
-    if (mag >= 4.0) return "#f59e0b"; // Amber
-    return "#10b981";                // Green
+<!-- Legend with Sequential Column Ordering -->
+<div class="legend">
+  <div class="legend-title">ST-GNN Grid Risk Index</div>
+  <div class="legend-sub">Normalized Risk Tiers [0.00 – 1.00]</div>
+  <div class="bar-container"></div>
+  <div class="bar-labels">
+    <span>0.0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span>
+  </div>
+  <div class="legend-cols">
+    <!-- Left Column: 0.0 to 0.5 -->
+    <div class="legend-col">
+      <div class="legend-class"><div class="dot" style="background:#10b981;"></div><span><b>0.0-0.1:</b> Minimal</span></div>
+      <div class="legend-class"><div class="dot" style="background:#84cc16;"></div><span><b>0.1-0.2:</b> Light</span></div>
+      <div class="legend-class"><div class="dot" style="background:#a3e635;"></div><span><b>0.2-0.3:</b> Noticeable</span></div>
+      <div class="legend-class"><div class="dot" style="background:#facc15;"></div><span><b>0.3-0.4:</b> Low Mod</span></div>
+      <div class="legend-class"><div class="dot" style="background:#f59e0b;"></div><span><b>0.4-0.5:</b> Moderate</span></div>
+    </div>
+    <!-- Right Column: 0.5 to 1.0 -->
+    <div class="legend-col">
+      <div class="legend-class"><div class="dot" style="background:#fb923c;"></div><span><b>0.5-0.6:</b> Mod-High</span></div>
+      <div class="legend-class"><div class="dot" style="background:#ea580c;"></div><span><b>0.6-0.7:</b> High</span></div>
+      <div class="legend-class"><div class="dot" style="background:#ef4444;"></div><span><b>0.7-0.8:</b> Severe</span></div>
+      <div class="legend-class"><div class="dot" style="background:#dc2626;"></div><span><b>0.8-0.9:</b> Critical</span></div>
+      <div class="legend-class"><div class="dot" style="background:#7f1d1d;"></div><span><b>0.9-1.0:</b> Extreme</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const map = L.map('map').setView([33.9, -118.25], 10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  }).addTo(map);
+
+  // Custom Icon Definitions
+  const homeIcon = L.divIcon({ html: '<div class="custom-icon">🏠</div>', className: '', iconSize: [24, 24] });
+  const epicenterIcon = L.divIcon({ html: '<div class="custom-icon">💥</div>', className: '', iconSize: [28, 28] });
+  const hospitalIcon = L.divIcon({ html: '<div class="custom-icon">🏥</div>', className: '', iconSize: [22, 22] });
+  const shelterIcon = L.divIcon({ html: '<div class="custom-icon">🛡️</div>', className: '', iconSize: [22, 22] });
+
+  let userMarker = null, epicenterMarker = null, quakeCircle = null, rippleCircle = null;
+  let gridLayerGroup = L.layerGroup().addTo(map);
+  let hubLayerGroup = L.layerGroup().addTo(map);
+  let routeLayerGroup = L.layerGroup().addTo(map);
+
+  let currentEpicenter = { lat: 34.00, lon: -118.40 };
+  let currentUser = { lat: 33.8358, lon: -118.3406 };
+
+  function getRiskColor(risk) {
+    if (risk < 0.1) return '#10b981';
+    if (risk < 0.2) return '#84cc16';
+    if (risk < 0.3) return '#a3e635';
+    if (risk < 0.4) return '#facc15';
+    if (risk < 0.5) return '#f59e0b';
+    if (risk < 0.6) return '#fb923c';
+    if (risk < 0.7) return '#ea580c';
+    if (risk < 0.8) return '#ef4444';
+    if (risk < 0.9) return '#dc2626';
+    return '#7f1d1d';
   }
 
-  // Initialize Map with desktop resize handling
-  function initMap() {
-    map = L.map("map", { zoomControl: true }).setView([20, 0], 2);
-    
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+  // Epicenter Marker Setup
+  epicenterMarker = L.marker([currentEpicenter.lat, currentEpicenter.lon], { icon: epicenterIcon, draggable: true }).addTo(map);
+  epicenterMarker.bindTooltip("<b>Epicenter Target</b> (Click map or drag to set)", { permanent: false });
+  epicenterMarker.on('dragend', function(e) {
+    const pos = e.target.getLatLng();
+    currentEpicenter = { lat: pos.lat, lon: pos.lng };
+    runSimulation();
+  });
 
-    // Click map to manually set filter coordinates
-    map.on("click", (e) => {
-      const { lat, lng } = e.latlng;
-      document.getElementById("filter-latitude").value = lat.toFixed(4);
-      document.getElementById("filter-longitude").value = lng.toFixed(4);
-      
-      const currentLoc = document.getElementById("filter-location").value || "Custom Selected Pin";
-      const currentMag = parseFloat(document.getElementById("filter-magnitude").value) || 3.0;
+  // Click map anywhere to set Epicenter
+  map.on('click', function(e) {
+    currentEpicenter = { lat: e.latlng.lat, lon: e.latlng.lng };
+    epicenterMarker.setLatLng([currentEpicenter.lat, currentEpicenter.lon]);
+    runSimulation();
+  });
 
-      updateMapMarker(lat, lng, currentLoc, currentMag, "User Selected Location");
-    });
-  }
-
-  // Parses raw USGS JSON
-  function parseEarthquakeFeature(feature) {
-    return {
-      id: feature.id,
-      location: feature.properties.place || "Unknown Location",
-      magnitude: feature.properties.mag,
-      time: new Date(feature.properties.time),
-      url: feature.properties.url,
-      coordinates: {
-        longitude: feature.geometry.coordinates[0],
-        latitude: feature.geometry.coordinates[1],
-        depthKm: feature.geometry.coordinates[2]
-      }
-    };
-  }
-
-  // API Call 1: Live 24h Feed (M2.5+)
-  async function fetchRecentEarthquakes() {
-    const response = await fetch(`${USGS_BASE_URL}/earthquakes/feed/v1.0/summary/2.5_day.geojson`);
-    if (!response.ok) throw new Error("Failed to load USGS live feed.");
-    const data = await response.json();
-    return data.features.map(parseEarthquakeFeature);
-  }
-
-  // API Call 2: 10-Year Max Magnitude Query
-  async function fetchMostSevere10Year() {
-    const now = new Date();
-    const tenYearsAgo = new Date(now.getFullYear() - 10, now.getMonth(), now.getDate());
-    const starttime = tenYearsAgo.toISOString().split("T")[0];
-
-    const queryUrl = `${USGS_BASE_URL}/fdsnws/event/1/query?format=geojson&starttime=${starttime}&orderby=magnitude&limit=1`;
-    const response = await fetch(queryUrl);
-    if (!response.ok) throw new Error("Failed to query historical data.");
-
-    const data = await response.json();
-    if (!data.features || data.features.length === 0) return null;
-    return parseEarthquakeFeature(data.features[0]);
-  }
-
-  // Dynamically updates marker and view
-  function updateMapMarker(lat, lng, locationText, mag, subtitle = "") {
-    if (isNaN(lat) || isNaN(lng)) return;
-
-    const color = getMagnitudeColor(mag);
-    const radius = Math.max(8, Math.min(mag * 4, 30));
-
-    if (activeMarker) map.removeLayer(activeMarker);
-
-    activeMarker = L.circleMarker([lat, lng], {
-      radius: radius,
-      fillColor: color,
-      color: "#ffffff",
-      weight: 2,
-      opacity: 1,
-      fillOpacity: 0.8
-    }).addTo(map);
-
-    const popupContent = `
-      <div style="font-family: system-ui, sans-serif; min-width: 180px;">
-        <h4 style="margin-bottom:4px; color:${color}">${locationText}</h4>
-        <b>Magnitude:</b> M${mag}<br>
-        <b>Coordinates:</b> ${lat.toFixed(4)}, ${lng.toFixed(4)}<br>
-        ${subtitle ? `<small style="color:#64748b">${subtitle}</small>` : ""}
-      </div>
-    `;
-
-    activeMarker.bindPopup(popupContent).openPopup();
-    map.flyTo([lat, lng], Math.max(map.getZoom(), 5), { duration: 1.2 });
-  }
-
-  // Synchronizes filter inputs and updates map
-  function applyEarthquakeSelection(quake) {
-    if (!quake) return;
-
-    document.getElementById("filter-location").value = quake.location;
-    document.getElementById("filter-magnitude").value = quake.magnitude;
-    document.getElementById("filter-latitude").value = quake.coordinates.latitude;
-    document.getElementById("filter-longitude").value = quake.coordinates.longitude;
-
-    updateMapMarker(
-      quake.coordinates.latitude,
-      quake.coordinates.longitude,
-      quake.location,
-      quake.magnitude,
-      `Recorded: ${quake.time.toLocaleString()}`
-    );
-  }
-
-  // Add listeners for manually edited input boxes
-  function bindInputListeners() {
-    const latInput = document.getElementById("filter-latitude");
-    const lngInput = document.getElementById("filter-longitude");
-    const magInput = document.getElementById("filter-magnitude");
-    const locInput = document.getElementById("filter-location");
-
-    const handleInputChange = () => {
-      const lat = parseFloat(latInput.value);
-      const lng = parseFloat(lngInput.value);
-      const mag = parseFloat(magInput.value) || 3.0;
-      const loc = locInput.value || "Custom Input Point";
-
-      if (!isNaN(lat) && !isNaN(lng)) {
-        updateMapMarker(lat, lng, loc, mag, "Manual Filter Input");
-      }
-    };
-
-    [latInput, lngInput, magInput, locInput].forEach(input => {
-      input.addEventListener("change", handleInputChange);
-    });
-  }
-
-  // Main Loader Initialization
-  async function init() {
-    initMap();
-    bindInputListeners();
-
-    const selector = document.getElementById("earthquake-select");
-    const statusText = document.getElementById("status-message");
-
-    try {
-      const [recentQuakes, mostSevereQuake] = await Promise.all([
-        fetchRecentEarthquakes(),
-        fetchMostSevere10Year()
-      ]);
-
-      selector.innerHTML = `<option value="">-- Choose Preset Earthquake --</option>`;
-
-      // 1. Add 10-Year Max Event
-      if (mostSevereQuake) {
-        loadedEarthquakes["most-severe-10yr"] = mostSevereQuake;
-        const opt = document.createElement("option");
-        opt.value = "most-severe-10yr";
-        opt.textContent = `⭐ 10-Year Max: ${mostSevereQuake.location} (M${mostSevereQuake.magnitude})`;
-        selector.appendChild(opt);
-      }
-
-      // 2. Add Live Feed Events
-      recentQuakes.forEach((quake, idx) => {
-        loadedEarthquakes[quake.id] = quake;
-        const opt = document.createElement("option");
-        opt.value = quake.id;
-        opt.textContent = `${idx === 0 ? "⚡ [Latest] " : ""}${quake.location} (M${quake.magnitude})`;
-        selector.appendChild(opt);
-      });
-
-      // 3. Auto-select latest event by default
-      if (recentQuakes.length > 0) {
-        const latest = recentQuakes[0];
-        selector.value = latest.id;
-        applyEarthquakeSelection(latest);
-        statusText.textContent = `Loaded ${recentQuakes.length} recent USGS events. Auto-selected latest event.`;
-      }
-
-      // 4. Selector Change Handler
-      selector.addEventListener("change", (e) => {
-        const quake = loadedEarthquakes[e.target.value];
-        if (quake) {
-          applyEarthquakeSelection(quake);
-          statusText.textContent = `Selected: ${quake.location} (M${quake.magnitude})`;
+  function geocodeAddress() {
+    const addr = document.getElementById('address').value;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
+      .then(res => res.json())
+      .then(data => {
+        if(data && data.length > 0) {
+          currentUser = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+          if(userMarker) map.removeLayer(userMarker);
+          userMarker = L.marker([currentUser.lat, currentUser.lon], { icon: homeIcon }).addTo(map);
+          userMarker.bindTooltip("<b>Your Residence</b>", { permanent: true, direction: 'top' });
+          map.panTo([currentUser.lat, currentUser.lon]);
+          runSimulation();
         }
       });
+  }
 
-    } catch (err) {
-      console.error(err);
-      selector.innerHTML = `<option value="">Error loading feed</option>`;
-      statusText.textContent = "Failed to fetch data from USGS servers.";
+  function onMagnitudeChange(val) {
+    document.getElementById('magVal').innerText = `M${val}`;
+    document.getElementById('statusText').innerText = `Magnitude M${val}`;
+    runSimulation();
+  }
+
+  function focusHome() {
+    if (userMarker) map.setView([currentUser.lat, currentUser.lon], 11);
+  }
+
+  function focusEpicenter() {
+    map.setView([currentEpicenter.lat, currentEpicenter.lon], 11);
+  }
+
+  function toggleTheme() {
+    const root = document.body;
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  }
+
+  function toggleMobileSheet() {
+    const sheet = document.getElementById('mobileSheet');
+    const icon = document.getElementById('sheetToggleIcon');
+    if (window.innerWidth <= 900) {
+      const isCollapsed = sheet.style.display === 'none';
+      sheet.style.display = isCollapsed ? 'block' : 'none';
+      icon.innerText = isCollapsed ? '▾' : '▸';
     }
   }
 
-  document.addEventListener("DOMContentLoaded", init);
-</script>
+  function setLoadingState(isLoading) {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('loading', isLoading);
+    document.getElementById('statusText').innerText = isLoading ? 'Running simulation…' : 'Ready';
+  }
 
+  function updateSheetContent(data) {
+    const sheet = document.getElementById('mobileSheet');
+    const content = document.getElementById('sheetContent');
+    if (window.innerWidth <= 900) {
+      sheet.style.display = 'block';
+      content.innerHTML = `
+        <div style="font-size:0.84rem; color:#d1d5db; line-height:1.5;">
+          <div><b>Shake radius:</b> ${data.radius_of_effect_km.toFixed(1)} km</div>
+          <div><b>Damaged structures:</b> ${data.damaged_buildings.toLocaleString()}</div>
+          <div><b>Economic loss:</b> ${data.economic_loss}</div>
+        </div>
+      `;
+    } else {
+      sheet.style.display = 'none';
+    }
+  }
+
+  function runSimulation() {
+    setLoadingState(true);
+    const mag = parseFloat(document.getElementById('magSlider').value);
+    const apiBase = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://127.0.0.1:8000'
+      : '';
+
+    fetch(`${apiBase}/predict`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        epicenter_x: currentEpicenter.lon,
+        epicenter_y: currentEpicenter.lat,
+        magnitude: mag,
+        user_x: currentUser.lon,
+        user_y: currentUser.lat
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      setLoadingState(false);
+      document.getElementById('statusText').innerText = `Risk updated · ${data.radius_of_effect_km.toFixed(1)} km`;
+      updateSheetContent(data);
+
+      // 1. Regional Metrics
+      document.getElementById('radiusVal').innerText = `${data.radius_of_effect_km} km`;
+      document.getElementById('buildingsVal').innerText = data.damaged_buildings.toLocaleString();
+      document.getElementById('elVal').innerText = data.economic_loss;
+
+      // 2. Wave Boundary & Synchronized Pulsing Geographic Ripple
+      if (quakeCircle) map.removeLayer(quakeCircle);
+      if (rippleCircle) map.removeLayer(rippleCircle);
+
+      const radiusMeters = data.radius_of_effect_km * 1000;
+
+      // Main Hazard Limit Ring
+      quakeCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
+        color: '#ef4444',
+        fillColor: '#ef4444',
+        fillOpacity: 0.12,
+        radius: radiusMeters,
+        weight: 1.5
+      }).addTo(map);
+
+      // Expanding Pulsing Ripple Ring
+      rippleCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
+        color: '#f87171',
+        fillColor: '#ef4444',
+        radius: radiusMeters,
+        className: 'seismic-ripple-circle',
+        interactive: false
+      }).addTo(map);
+
+      // 3. Render Dynamic Grid Risk Points
+      gridLayerGroup.clearLayers();
+      data.predictions.forEach(pt => {
+        const color = getRiskColor(pt.predicted_risk);
+        L.circleMarker([pt.coords[1], pt.coords[0]], {
+          radius: 5, fillColor: color, color: color, weight: 0.5, opacity: 0.85, fillOpacity: 0.8
+        }).bindTooltip(`Risk Score: <b>${(pt.predicted_risk * 100).toFixed(1)}%</b>`).addTo(gridLayerGroup);
+      });
+
+      // 4. Render Evacuation Centers & High-Contrast White Dashed Routes
+      hubLayerGroup.clearLayers();
+      routeLayerGroup.clearLayers();
+      
+      const facilityContainer = document.getElementById('facilityContainer');
+      facilityContainer.innerHTML = '';
+
+      data.safe_evacuation_centers.forEach((hub, idx) => {
+        const icon = hub.type === "Hospital" ? hospitalIcon : shelterIcon;
+        const marker = L.marker([hub.lat, hub.lon], { icon: icon }).addTo(hubLayerGroup);
+
+        marker.bindTooltip(`<b>${hub.name}</b><br>Type: ${hub.type}<br>Distance: ${hub.distance_from_user_km} km<br>Status: <b>${hub.safety_rating}</b>`);
+
+        // Draw High-Contrast White Dashed Line with Underlay Shadow to Top 3 Facilities
+        if (idx < 3) {
+          const coords = [[currentUser.lat, currentUser.lon], [hub.lat, hub.lon]];
+          
+          // Underlay Shadow Polyline
+          L.polyline(coords, {
+            color: '#000000', weight: 5, opacity: 0.6
+          }).addTo(routeLayerGroup);
+
+          // Prominent White Dashed Polyline
+          L.polyline(coords, {
+            color: '#ffffff', weight: 3, dashArray: '6, 8', opacity: 0.95
+          }).addTo(routeLayerGroup);
+        }
+
+        // Render Sidebar Cards
+        const item = document.createElement('div');
+        item.className = `facility-item ${hub.is_outside_impact_zone ? '' : 'compromised'}`;
+        item.innerHTML = `
+          <div class="facility-title">${hub.type === "Hospital" ? '🏥' : '🛡️'} ${hub.name}</div>
+          <div class="facility-meta">Distance: <b>${hub.distance_from_user_km} km</b> | Status: <span style="color:${hub.is_outside_impact_zone ? '#10b981' : '#ef4444'}; font-weight:600;">${hub.safety_rating}</span></div>
+        `;
+        facilityContainer.appendChild(item);
+      });
+
+      // 5. Personal Hazard Analysis
+      if(data.personal_impact) {
+        document.getElementById('userDist').innerText = `${data.personal_impact.distance_to_epicenter_km} km (${data.personal_impact.in_hazard_zone ? 'Inside Hazard Zone' : 'Outside Hazard Zone'})`;
+        document.getElementById('userProb').innerText = data.personal_impact.critical_impact_probability;
+        document.getElementById('userStatus').innerText = data.personal_impact.structural_collapse_risk;
+        document.getElementById('userEscape').innerText = data.personal_impact.escape_feasibility;
+
+        const hList = document.getElementById('userHazards');
+        hList.innerHTML = '';
+        data.personal_impact.predicted_health_outcomes.forEach(h => {
+          const li = document.createElement('li');
+          li.innerText = h;
+          hList.appendChild(li);
+        });
+      }
+    });
+  }
+
+  // Initial Run
+  geocodeAddress();
+</script>
 </body>
 </html>
