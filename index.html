@@ -129,7 +129,6 @@
       <p class="sub">Tap the map or drag the epicenter marker.</p>
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
-      <button class="theme-toggle" onclick="toggleTheme()">🌗 Theme</button>
       <button class="theme-toggle" onclick="toggleDataPanel(false)">✕ Close</button>
       <div class="pill">⚡ Live Risk</div>
     </div>
@@ -180,7 +179,6 @@
   <div class="fab-row">
     <button class="fab" id="dataToggleBtn" onclick="toggleDataPanel()">📊 View data</button>
     <button class="fab" onclick="focusHome()">🏠 Home</button>
-    <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
   </div>
 </div>
 
@@ -300,12 +298,6 @@
 
   function focusEpicenter() {
     map.setView([currentEpicenter.lat, currentEpicenter.lon], 11);
-  }
-
-  function toggleTheme() {
-    const root = document.body;
-    const isDark = root.getAttribute('data-theme') !== 'light';
-    root.setAttribute('data-theme', isDark ? 'light' : 'dark');
   }
 
   function setDataPanelState(isOpen) {
