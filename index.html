@@ -8,23 +8,24 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { display: flex; flex-direction: row; height: 100vh; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; transition: background 0.25s ease, color 0.25s ease; }
+    body { display: flex; flex-direction: row; height: 100vh; overflow: hidden; position: relative; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; transition: background 0.25s ease, color 0.25s ease; }
     body[data-theme="light"] { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #0f172a; }
     body[data-theme="light"] #sidebar { background: rgba(255,255,255,0.95); color: #0f172a; border-right-color: rgba(15,23,42,0.08); box-shadow: 0 10px 30px rgba(15,23,42,0.14); }
     body[data-theme="light"] .card, body[data-theme="light"] .metric-box, body[data-theme="light"] .facility-item, body[data-theme="light"] .legend, body[data-theme="light"] .fab, body[data-theme="light"] .status-strip, body[data-theme="light"] .theme-toggle { background: rgba(255,255,255,0.94); color: #0f172a; border-color: rgba(15,23,42,0.08); }
     body[data-theme="light"] input[type="text"] { background: #f8fafc; color: #0f172a; border-color: rgba(15,23,42,0.12); }
     body[data-theme="light"] .pill, body[data-theme="light"] .status-strip { background: rgba(37,99,235,0.12); color: #1d4ed8; }
     body[data-theme="light"] .legend-sub, body[data-theme="light"] .metric-lbl, body[data-theme="light"] .facility-meta { color: #475569; }
-    #sidebar { width: 420px; max-width: 100%; background: rgba(17, 24, 39, 0.96); padding: 20px; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.08); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-    #map { flex: 1; height: 100%; min-height: 280px; position: relative; }
+    #sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(420px, 92vw); max-width: 100%; background: rgba(17, 24, 39, 0.96); padding: 20px; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.08); z-index: 1200; box-shadow: 0 10px 30px rgba(0,0,0,0.25); transform: translateX(-102%); opacity: 0; pointer-events: none; transition: transform 0.25s ease, opacity 0.25s ease; }
+    body[data-panel="expanded"] #sidebar { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    #map { flex: 1; width: 100%; height: 100%; min-height: 280px; position: relative; background: radial-gradient(circle at top, rgba(59,130,246,0.18), transparent 60%); }
     
     .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     h1 { font-size: 1.2rem; font-weight: 700; color: #f3f4f6; }
     .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(37, 99, 235, 0.18); color: #93c5fd; font-size: 0.75rem; font-weight: 600; }
     p.sub { font-size: 0.82rem; color: #9ca3af; margin-bottom: 14px; }
     
-    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: transform .2s ease, box-shadow .2s ease; }
-    .card:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.24); }
+    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 8px 22px rgba(0,0,0,0.18); transition: transform .2s ease, box-shadow .2s ease; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(0,0,0,0.24); }
     .card h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     
     label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
@@ -76,7 +77,7 @@
     }
 
     /* Fixed 2-Column Sequential Legend Grid */
-    .legend { position: absolute; bottom: 18px; right: 18px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(8px); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); width: min(320px, calc(100% - 24px)); z-index: 1000; box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
+    .legend { position: absolute; bottom: 18px; right: 18px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(10px); padding: 14px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); width: min(320px, calc(100% - 24px)); z-index: 1000; box-shadow: 0 12px 28px rgba(0,0,0,0.28); }
     .fab-row { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 1000; }
     .fab { background: rgba(17,24,39,0.92); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 0.82rem; box-shadow: 0 8px 20px rgba(0,0,0,0.24); backdrop-filter: blur(8px); cursor: pointer; }
     .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin-bottom: 10px; background: rgba(37,99,235,0.14); border: 1px solid rgba(96,165,250,0.28); border-radius: 999px; color: #bfdbfe; font-size: 0.78rem; }
@@ -92,26 +93,27 @@
     .legend-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
 
   @media (max-width: 900px) {
-    body { flex-direction: column; height: auto; min-height: 100vh; }
-    #sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); max-height: 62vh; padding: 14px; }
-    #map { height: 58vh; min-height: 58vh; }
-    .legend { position: static; width: calc(100% - 20px); margin: 10px; }
+    body { flex-direction: column; height: 100dvh; overflow: hidden; }
+    #sidebar { width: min(92vw, 420px); border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 12px; border-radius: 0 20px 20px 0; max-height: 100vh; }
+    #map { height: 100%; min-height: 100%; }
+    .legend { position: absolute; left: 10px; right: 10px; bottom: 10px; width: auto; }
     .fab-row { top: 10px; right: 10px; }
   }
 
   @media (max-width: 600px) {
-    #sidebar { padding: 12px; border-radius: 0 0 16px 16px; }
-    .app-header { margin-bottom: 12px; }
-    h1 { font-size: 1.05rem; }
-    .card { padding: 12px; border-radius: 12px; }
+    #sidebar { padding: 10px; }
+    .app-header { margin-bottom: 10px; flex-direction: column; align-items: flex-start; gap: 8px; }
+    h1 { font-size: 1.02rem; }
+    .card { padding: 11px; border-radius: 12px; }
     .metric-grid { grid-template-columns: 1fr; }
     .metric-box[style*="grid-column: span 2"] { grid-column: span 1; }
     .legend-cols { grid-template-columns: 1fr; }
     .btn { padding: 12px; }
     input[type="text"] { padding: 12px; }
     .fab-row { top: 8px; right: 8px; gap: 6px; }
-    .fab { padding: 7px 9px; font-size: 0.78rem; }
-    .status-strip { border-radius: 12px; font-size: 0.74rem; }
+    .fab { padding: 7px 9px; font-size: 0.76rem; }
+    .status-strip { border-radius: 12px; font-size: 0.72rem; }
+    .legend { padding: 12px; bottom: 8px; }
   }
     .legend-col { display: flex; flex-direction: column; gap: 5px; }
     .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #d1d5db; }
@@ -128,6 +130,7 @@
     </div>
     <div style="display:flex; align-items:center; gap:8px;">
       <button class="theme-toggle" onclick="toggleTheme()">🌗 Theme</button>
+      <button class="theme-toggle" onclick="toggleDataPanel(false)">✕ Close</button>
       <div class="pill">⚡ Live Risk</div>
     </div>
   </div>
@@ -175,6 +178,7 @@
 
 <div id="map">
   <div class="fab-row">
+    <button class="fab" id="dataToggleBtn" onclick="toggleDataPanel()">📊 View data</button>
     <button class="fab" onclick="focusHome()">🏠 Home</button>
     <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
   </div>
@@ -302,6 +306,17 @@
     const root = document.body;
     const isDark = root.getAttribute('data-theme') !== 'light';
     root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  }
+
+  function setDataPanelState(isOpen) {
+    document.body.setAttribute('data-panel', isOpen ? 'expanded' : 'collapsed');
+    const btn = document.getElementById('dataToggleBtn');
+    if (btn) btn.innerText = isOpen ? '🗂️ Hide data' : '📊 View data';
+  }
+
+  function toggleDataPanel(force) {
+    const shouldOpen = typeof force === 'boolean' ? force : document.body.getAttribute('data-panel') !== 'expanded';
+    setDataPanelState(shouldOpen);
   }
 
   function toggleMobileSheet() {
@@ -455,7 +470,12 @@
     });
   }
 
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setDataPanelState(false);
+  });
+
   // Initial Run
+  setDataPanelState(false);
   geocodeAddress();
 </script>
 </body>
