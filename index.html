@@ -2,167 +2,311 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Seismic Hazard & Personal Safety Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { display: flex; flex-direction: row; height: 100vh; background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); color: #e2e8f0; transition: background 0.25s ease, color 0.25s ease; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    
+    body { 
+      display: flex; 
+      flex-direction: row; 
+      height: 100vh; 
+      width: 100vw;
+      overflow: hidden;
+      background: linear-gradient(135deg, #07111f 0%, #0f172a 100%); 
+      color: #e2e8f0; 
+      transition: background 0.25s ease, color 0.25s ease; 
+    }
+    
     body[data-theme="light"] { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); color: #0f172a; }
-    body[data-theme="light"] #sidebar { background: rgba(255,255,255,0.95); color: #0f172a; border-right-color: rgba(15,23,42,0.08); box-shadow: 0 10px 30px rgba(15,23,42,0.14); }
-    body[data-theme="light"] .card, body[data-theme="light"] .metric-box, body[data-theme="light"] .facility-item, body[data-theme="light"] .legend, body[data-theme="light"] .fab, body[data-theme="light"] .status-strip, body[data-theme="light"] .theme-toggle { background: rgba(255,255,255,0.94); color: #0f172a; border-color: rgba(15,23,42,0.08); }
+    body[data-theme="light"] #sidebar { background: rgba(255,255,255,0.92); backdrop-filter: blur(16px); color: #0f172a; border-right-color: rgba(15,23,42,0.08); box-shadow: 10px 0 30px rgba(15,23,42,0.08); }
+    body[data-theme="light"] .card, 
+    body[data-theme="light"] .metric-box, 
+    body[data-theme="light"] .facility-item, 
+    body[data-theme="light"] .legend, 
+    body[data-theme="light"] .fab, 
+    body[data-theme="light"] .status-strip, 
+    body[data-theme="light"] .theme-toggle,
+    body[data-theme="light"] .drawer-handle,
+    body[data-theme="light"] .search-bar-floating { background: rgba(255,255,255,0.94); color: #0f172a; border-color: rgba(15,23,42,0.08); }
     body[data-theme="light"] input[type="text"] { background: #f8fafc; color: #0f172a; border-color: rgba(15,23,42,0.12); }
-    body[data-theme="light"] .pill, body[data-theme="light"] .status-strip { background: rgba(37,99,235,0.12); color: #1d4ed8; }
-    body[data-theme="light"] .legend-sub, body[data-theme="light"] .metric-lbl, body[data-theme="light"] .facility-meta { color: #475569; }
-    #sidebar { width: 420px; max-width: 100%; background: rgba(17, 24, 39, 0.96); padding: 20px; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.08); z-index: 1000; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-    #map { flex: 1; height: 100%; min-height: 280px; position: relative; }
-    
-    .app-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    h1 { font-size: 1.2rem; font-weight: 700; color: #f3f4f6; }
-    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(37, 99, 235, 0.18); color: #93c5fd; font-size: 0.75rem; font-weight: 600; }
-    p.sub { font-size: 0.82rem; color: #9ca3af; margin-bottom: 14px; }
-    
-    .card { background: linear-gradient(180deg, rgba(31,41,55,0.96), rgba(17,24,39,0.96)); padding: 14px; border-radius: 14px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 6px 18px rgba(0,0,0,0.18); transition: transform .2s ease, box-shadow .2s ease; }
-    .card:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(0,0,0,0.24); }
-    .card h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-    
-    label { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
-    input[type="text"] { width: 100%; padding: 11px 12px; background: rgba(17,24,39,0.9); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; color: #fff; margin-bottom: 10px; }
-    .btn { width: 100%; padding: 11px 12px; background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; transition: 0.2s; }
-    .btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
-    
-    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-    .metric-box { background: rgba(17,24,39,0.9); padding: 10px; border-radius: 10px; }
-    .metric-val { font-size: 1.1rem; font-weight: 700; color: #f3f4f6; }
-    .metric-lbl { font-size: 0.75rem; color: #9ca3af; }
-    
-    ul.hazard-list { list-style: none; margin-top: 8px; }
-    ul.hazard-list li { font-size: 0.82rem; color: #f87171; margin-bottom: 4px; padding-left: 12px; position: relative; }
-    ul.hazard-list li::before { content: "•"; position: absolute; left: 0; color: #ef4444; }
+    body[data-theme="light"] .pill, body[data-theme="light"] .status-strip { background: rgba(37,99,235,0.1); color: #1d4ed8; }
+    body[data-theme="light"] .legend-sub, body[data-theme="light"] .metric-lbl, body[data-theme="light"] .facility-meta, body[data-theme="light"] p.sub { color: #475569; }
 
-    /* Evacuation Hub Sidebar Cards */
-    .facility-item { background: rgba(17,24,39,0.95); padding: 10px; border-radius: 10px; margin-bottom: 8px; border-left: 4px solid #10b981; }
+    /* Map First Layout Design: Floating Sidebar / Collapsible Sheet */
+    #map { flex: 1; height: 100%; position: relative; z-index: 1; }
+    
+    #sidebar { 
+      width: 440px; 
+      min-width: 440px; 
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.88); 
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 24px; 
+      overflow-y: auto; 
+      border-right: 1px solid rgba(255,255,255,0.08); 
+      z-index: 1000; 
+      box-shadow: 15px 0 35px rgba(0,0,0,0.3); 
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    .app-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    h1 { font-size: 1.25rem; font-weight: 800; color: #f3f4f6; letter-spacing: -0.02em; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: rgba(37, 99, 235, 0.2); color: #93c5fd; font-size: 0.75rem; font-weight: 700; border: 1px solid rgba(147, 197, 253, 0.2); }
+    p.sub { font-size: 0.82rem; color: #94a3b8; margin-top: 2px; }
+    
+    .card { 
+      background: linear-gradient(180deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8)); 
+      padding: 16px; 
+      border-radius: 16px; 
+      border: 1px solid rgba(255,255,255,0.06); 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+      transition: transform .2s ease, border-color .2s ease; 
+    }
+    .card:hover { border-color: rgba(255,255,255,0.12); }
+    .card h3 { font-size: 0.92rem; color: #60a5fa; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+    
+    label { display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px; }
+    input[type="text"] { width: 100%; padding: 12px 14px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #fff; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+    input[type="text"]:focus { border-color: #3b82f6; }
+    
+    .btn { padding: 12px 16px; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 0.85rem; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .metric-box { background: rgba(15, 23, 42, 0.6); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.04); }
+    .metric-val { font-size: 1.15rem; font-weight: 800; color: #f3f4f6; letter-spacing: -0.01em; }
+    .metric-lbl { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; font-weight: 500; }
+    
+    ul.hazard-list { list-style: none; margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+    ul.hazard-list li { font-size: 0.82rem; color: #fca5a5; padding-left: 16px; position: relative; font-weight: 500; }
+    ul.hazard-list li::before { content: "•"; position: absolute; left: 4px; color: #ef4444; font-weight: bold; }
+
+    /* Evacuation Hub Cards */
+    .facility-container { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; padding-right: 4px; }
+    .facility-container::-webkit-scrollbar { width: 4px; }
+    .facility-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15; border-radius: 4px; }
+    
+    .facility-item { background: rgba(15, 23, 42, 0.7); padding: 12px; border-radius: 12px; border-left: 4px solid #10b981; border-top: 1px solid rgba(255,255,255,0.04); border-right: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background 0.2s; }
+    .facility-item:hover { background: rgba(30, 41, 59, 0.8); }
     .facility-item.compromised { border-left-color: #ef4444; }
-    .facility-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; }
-    .facility-meta { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+    .facility-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+    .facility-meta { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; display: flex; justify-content: space-between; }
 
     /* Map Custom Marker Styling */
-    .custom-icon { display: flex; align-items: center; justify-content: center; font-size: 18px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+    .custom-icon { display: flex; align-items: center; justify-content: center; font-size: 18px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4)); transition: transform 0.2s; }
+    .custom-icon:hover { transform: scale(1.15); }
     
-    /* True SVG Seismic Ripple Keyframes */
     @keyframes ripple-geo {
-      0% {
-        stroke-width: 4px;
-        stroke-opacity: 0.9;
-        fill-opacity: 0.25;
-        transform: scale(0.05);
-        transform-origin: center;
-      }
-      100% {
-        stroke-width: 1px;
-        stroke-opacity: 0.0;
-        fill-opacity: 0.0;
-        transform: scale(1.0);
-        transform-origin: center;
-      }
+      0% { stroke-width: 4px; stroke-opacity: 0.9; fill-opacity: 0.25; transform: scale(0.05); transform-origin: center; }
+      100% { stroke-width: 1px; stroke-opacity: 0.0; fill-opacity: 0.0; transform: scale(1.0); transform-origin: center; }
     }
+    .seismic-ripple-circle { animation: ripple-geo 3s infinite cubic-bezier(0.215, 0.61, 0.355, 1); pointer-events: none; transform-origin: center; transform-box: fill-box; }
 
-    .seismic-ripple-circle {
-      animation: ripple-geo 3s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
-      pointer-events: none;
-      transform-origin: center;
-      transform-box: fill-box;
-    }
+    /* Floating Controls & Legend */
+    .fab-row { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 1000; }
+    .fab { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 10px 16px; font-size: 0.82rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.3); backdrop-filter: blur(12px); cursor: pointer; transition: transform 0.2s, background 0.2s; }
+    .fab:hover { transform: translateY(-1px); background: rgba(30, 41, 59, 0.95); }
 
-    /* Fixed 2-Column Sequential Legend Grid */
-    .legend { position: absolute; bottom: 18px; right: 18px; background: rgba(17, 24, 39, 0.94); backdrop-filter: blur(8px); padding: 14px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.08); width: min(320px, calc(100% - 24px)); z-index: 1000; box-shadow: 0 10px 24px rgba(0,0,0,0.25); }
-    .fab-row { position: absolute; top: 16px; right: 16px; display: flex; gap: 8px; z-index: 1000; }
-    .fab { background: rgba(17,24,39,0.92); border: 1px solid rgba(255,255,255,0.12); color: #fff; border-radius: 999px; padding: 8px 10px; font-size: 0.82rem; box-shadow: 0 8px 20px rgba(0,0,0,0.24); backdrop-filter: blur(8px); cursor: pointer; }
-    .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; margin-bottom: 10px; background: rgba(37,99,235,0.14); border: 1px solid rgba(96,165,250,0.28); border-radius: 999px; color: #bfdbfe; font-size: 0.78rem; }
-    .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 999px; background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.75rem; }
-    .loading { opacity: 0.7; position: relative; }
-    .loading::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent); animation: shimmer 1.2s infinite; }
+    .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: rgba(37,99,235,0.12); border: 1px solid rgba(96,165,250,0.25); border-radius: 12px; color: #bfdbfe; font-size: 0.78rem; font-weight: 600; }
+    .theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 999px; background: rgba(255,255,255,0.06); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.75rem; font-weight: 600; transition: background 0.2s; }
+    .theme-toggle:hover { background: rgba(255,255,255,0.12); }
+
+    .loading { opacity: 0.75; position: relative; pointer-events: none; }
+    .loading::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); animation: shimmer 1.2s infinite; }
     @keyframes shimmer { 0% { transform: translateX(-100%);} 100% { transform: translateX(100%);} }
-    .legend-title { font-size: 0.85rem; font-weight: 700; color: #f3f4f6; margin-bottom: 2px; }
-    .legend-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 10px; }
-    .bar-container { height: 10px; border-radius: 5px; background: linear-gradient(to right, #10b981, #84cc16, #a3e635, #facc15, #f59e0b, #fb923c, #ea580c, #ef4444, #dc2626, #7f1d1d); margin-bottom: 6px; }
-    .bar-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: #9ca3af; margin-bottom: 12px; }
-    
-    .legend-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
 
-  @media (max-width: 900px) {
-    body { flex-direction: column; height: auto; min-height: 100vh; }
-    #sidebar { width: 100%; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.08); max-height: 62vh; padding: 14px; }
-    #map { height: 58vh; min-height: 58vh; }
-    .legend { position: static; width: calc(100% - 20px); margin: 10px; }
-    .fab-row { top: 10px; right: 10px; }
-  }
+    /* Desktop Legend Container */
+    .legend { position: absolute; bottom: 24px; right: 24px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); padding: 16px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.08); width: 320px; z-index: 1000; box-shadow: 0 12px 32px rgba(0,0,0,0.3); }
+    .legend-title { font-size: 0.85rem; font-weight: 800; color: #f3f4f6; margin-bottom: 2px; }
+    .legend-sub { font-size: 0.72rem; color: #94a3b8; margin-bottom: 10px; }
+    .bar-container { height: 8px; border-radius: 4px; background: linear-gradient(to right, #10b981, #84cc16, #a3e635, #facc15, #f59e0b, #fb923c, #ea580c, #ef4444, #dc2626, #7f1d1d); margin-bottom: 6px; }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 0.68rem; color: #94a3b8; margin-bottom: 10px; font-weight: 600; }
+    .legend-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; }
+    .legend-col { display: flex; flex-direction: column; gap: 4px; }
+    .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: #cbd5e1; font-weight: 500; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-  @media (max-width: 600px) {
-    #sidebar { padding: 12px; border-radius: 0 0 16px 16px; }
-    .app-header { margin-bottom: 12px; }
-    h1 { font-size: 1.05rem; }
-    .card { padding: 12px; border-radius: 12px; }
-    .metric-grid { grid-template-columns: 1fr; }
-    .metric-box[style*="grid-column: span 2"] { grid-column: span 1; }
-    .legend-cols { grid-template-columns: 1fr; }
-    .btn { padding: 12px; }
-    input[type="text"] { padding: 12px; }
-    .fab-row { top: 8px; right: 8px; gap: 6px; }
-    .fab { padding: 7px 9px; font-size: 0.78rem; }
-    .status-strip { border-radius: 12px; font-size: 0.74rem; }
-  }
-    .legend-col { display: flex; flex-direction: column; gap: 5px; }
-    .legend-class { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: #d1d5db; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    /* Mobile Sheet & Navigation Optimizations */
+    .mobile-toggle-btn { display: none; }
+    .drawer-handle { display: none; }
+
+    @media (max-width: 950px) {
+      body { flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; position: relative; }
+      
+      #map { width: 100%; height: 100vh; height: 100dvh; position: absolute; inset: 0; z-index: 1; }
+      
+      /* Floating Top Search & Quick Access Bar on Mobile */
+      .mobile-top-bar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 1001;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        pointer-events: auto;
+      }
+      
+      .search-bar-floating {
+        flex: 1;
+        background: rgba(15, 23, 42, 0.92);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,0.12);
+        padding: 10px 14px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      }
+      
+      .search-bar-floating input {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 0.88rem;
+        width: 100%;
+        outline: none;
+      }
+
+      /* Sliding Bottom Sheet for Mobile Insights */
+      #sidebar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        max-height: 72vh;
+        border-radius: 24px 24px 0 0;
+        border-right: none;
+        border-top: 1px solid rgba(255,255,255,0.12);
+        padding: 16px 20px 28px 20px;
+        z-index: 1002;
+        box-shadow: 0 -10px 40px rgba(0,0,0,0.4);
+        transform: translateY(calc(100% - 78px));
+        transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        will-change: transform;
+      }
+
+      #sidebar.expanded {
+        transform: translateY(0);
+      }
+
+      .drawer-handle {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding-bottom: 12px;
+        cursor: pointer;
+      }
+
+      .drawer-handle div {
+        width: 40px;
+        height: 5px;
+        background: rgba(255,255,255,0.25);
+        border-radius: 999px;
+      }
+
+      .fab-row { top: 72px; right: 12px; gap: 6px; }
+      .fab { padding: 8px 12px; font-size: 0.76rem; }
+      
+      /* Hide desktop legend on mobile, integrated into bottom sheet */
+      .legend { display: none; }
+      
+      .desktop-only-input { display: none; }
+    }
   </style>
 </head>
 <body>
 
-<div id="sidebar">
+<!-- Mobile Floating Top Bar (Active only on mobile view) -->
+<div class="mobile-top-bar" id="mobileTopBar">
+  <div class="search-bar-floating">
+    <span>📍</span>
+    <input type="text" id="mobileAddressInput" value="Los Angeles, California" placeholder="Enter address..." onkeypress="if(event.key==='Enter') applyMobileAddress()" />
+    <button onclick="applyMobileAddress()" style="background:none; border:none; color:#60a5fa; font-weight:700; font-size:0.8rem; cursor:pointer;">Go</button>
+  </div>
+  <button class="fab" style="position:static; padding:10px 12px;" onclick="toggleTheme()">🌗</button>
+</div>
+
+<!-- Main Interactive Map (Takes full priority) -->
+<div id="map">
+  <div class="fab-row">
+    <button class="fab" onclick="focusHome()">🏠 Home</button>
+    <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
+  </div>
+</div>
+
+<!-- Sidebar / Sliding Mobile Drawer Control Center -->
+<div id="sidebar" onclick="handleDrawerClick(event)">
+  <div class="drawer-handle" onclick="toggleDrawer()">
+    <div></div>
+  </div>
+
   <div class="app-header">
     <div>
       <h1>Seismic Hazard & Safety</h1>
-      <p class="sub">Tap the map or drag the epicenter marker.</p>
+      <p class="sub">Map-first simulation & evacuation intelligence</p>
     </div>
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div style="display:flex; align-items:center; gap:8px;" class="desktop-only-input">
       <button class="theme-toggle" onclick="toggleTheme()">🌗 Theme</button>
-      <div class="pill">⚡ Live Risk</div>
+      <div class="pill">⚡ Live ST-GNN</div>
     </div>
   </div>
 
   <div class="status-strip">
-    <span>🛰️ Regional seismic view active</span>
+    <span>🛰️ Regional live seismic view</span>
     <span id="statusText">Awaiting simulation</span>
   </div>
 
-  <div class="card">
+  <!-- Configuration Card -->
+  <div class="card desktop-only-input">
     <label for="address">Your Residence / Address</label>
     <div style="display:flex; gap: 8px;">
       <input type="text" id="address" value="Los Angeles, California" />
       <button class="btn" style="width: 90px;" onclick="geocodeAddress()">Locate</button>
     </div>
-
-    <label for="magSlider">Simulated Earthquake Magnitude: <span id="magVal" style="color:#60a5fa;">M7.2</span></label>
-    <input type="range" id="magSlider" min="4.0" max="9.5" step="0.1" value="7.2" style="width:100%; margin-top:8px;" oninput="onMagnitudeChange(this.value)" />
-  </div>
-
-  <div class="card" id="personalCard">
-    <h3>🏠 Residence Hazard Profile</h3>
-    <div style="font-size:0.85rem; margin-bottom:6px;">Distance to Quake: <span id="userDist" style="font-weight:700;">--</span></div>
-    <div style="font-size:0.85rem; margin-bottom:6px;">Critical Impact Risk: <span id="userProb" style="font-weight:700; color:#ef4444;">--</span></div>
-    <div style="font-size:0.85rem; margin-bottom:6px;">Structural Failure: <span id="userStatus" style="color:#f59e0b;">--</span></div>
-    <div style="font-size:0.85rem; margin-bottom:8px;">Escape Feasibility: <span id="userEscape">--</span></div>
-    <label>Predicted Health Hazards:</label>
-    <ul class="hazard-list" id="userHazards"><li>Enter location to assess</li></ul>
   </div>
 
   <div class="card">
-    <h3>🛡️ Recommended Evacuation Facilities</h3>
-    <div id="facilityContainer"><p style="font-size:0.8rem; color:#9ca3af;">Calculating safe routes...</p></div>
+    <label for="magSlider">Simulated Earthquake Magnitude: <span id="magVal" style="color:#60a5fa;">M7.2</span></label>
+    <input type="range" id="magSlider" min="4.0" max="9.5" step="0.1" value="7.2" style="width:100%; margin-top:8px; accent-color:#3b82f6;" oninput="onMagnitudeChange(this.value)" />
   </div>
 
+  <!-- Residence Hazard Profile -->
+  <div class="card" id="personalCard">
+    <h3>🏠 Residence Hazard Profile</h3>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+      <div style="font-size:0.82rem;">Distance: <span id="userDist" style="font-weight:700; color:#f3f4f6;">--</span></div>
+      <div style="font-size:0.82rem;">Critical Risk: <span id="userProb" style="font-weight:700; color:#ef4444;">--</span></div>
+      <div style="font-size:0.82rem;">Structure: <span id="userStatus" style="font-weight:600; color:#f59e0b;">--</span></div>
+      <div style="font-size:0.82rem;">Escape: <span id="userEscape" style="font-weight:600; color:#38bdf8;">--</span></div>
+    </div>
+    <label style="margin-top:8px;">Predicted Health Hazards:</label>
+    <ul class="hazard-list" id="userHazards"><li>Enter location to assess</li></ul>
+  </div>
+
+  <!-- Evacuation Facilities -->
+  <div class="card">
+    <h3>🛡️ Recommended Evacuation Hubs</h3>
+    <div class="facility-container" id="facilityContainer">
+      <p style="font-size:0.8rem; color:#94a3b8;">Calculating safe routes...</p>
+    </div>
+  </div>
+
+  <!-- Regional Metrics -->
   <div class="card">
     <h3>📊 Regional HAZUS Metrics</h3>
     <div class="metric-grid">
@@ -171,27 +315,35 @@
       <div class="metric-box" style="grid-column: span 2;"><div class="metric-val" id="elVal" style="color:#f87171;">--</div><div class="metric-lbl">Economic Loss (EL)</div></div>
     </div>
   </div>
-</div>
 
-<div id="map">
-  <div class="fab-row">
-    <button class="fab" onclick="focusHome()">🏠 Home</button>
-    <button class="fab" onclick="focusEpicenter()">💥 Epicenter</button>
-  </div>
-</div>
-
-<div id="mobileSheet" class="legend" style="display:none; position:fixed; bottom:12px; left:12px; right:12px; width:auto; max-height: 50vh; overflow:auto;">
-  <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleMobileSheet()">
-    <div>
-      <div class="legend-title">Quick Insights</div>
-      <div class="legend-sub">Tap to expand or collapse the live summary.</div>
+  <!-- Legend for Mobile View inside Drawer -->
+  <div class="card" style="margin-bottom:0;">
+    <div class="legend-title">ST-GNN Grid Risk Index</div>
+    <div class="legend-sub">Normalized Risk Tiers [0.00 – 1.00]</div>
+    <div class="bar-container"></div>
+    <div class="bar-labels">
+      <span>0.0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span>
     </div>
-    <div id="sheetToggleIcon" style="font-size:0.9rem; color:#93c5fd;">▾</div>
+    <div class="legend-cols">
+      <div class="legend-col">
+        <div class="legend-class"><div class="dot" style="background:#10b981;"></div><span><b>0.0-0.1:</b> Minimal</span></div>
+        <div class="legend-class"><div class="dot" style="background:#84cc16;"></div><span><b>0.1-0.2:</b> Light</span></div>
+        <div class="legend-class"><div class="dot" style="background:#a3e635;"></div><span><b>0.2-0.3:</b> Noticeable</span></div>
+        <div class="legend-class"><div class="dot" style="background:#facc15;"></div><span><b>0.3-0.4:</b> Low Mod</span></div>
+        <div class="legend-class"><div class="dot" style="background:#f59e0b;"></div><span><b>0.4-0.5:</b> Moderate</span></div>
+      </div>
+      <div class="legend-col">
+        <div class="legend-class"><div class="dot" style="background:#fb923c;"></div><span><b>0.5-0.6:</b> Mod-High</span></div>
+        <div class="legend-class"><div class="dot" style="background:#ea580c;"></div><span><b>0.6-0.7:</b> High</span></div>
+        <div class="legend-class"><div class="dot" style="background:#ef4444;"></div><span><b>0.7-0.8:</b> Severe</span></div>
+        <div class="legend-class"><div class="dot" style="background:#dc2626;"></div><span><b>0.8-0.9:</b> Critical</span></div>
+        <div class="legend-class"><div class="dot" style="background:#7f1d1d;"></div><span><b>0.9-1.0:</b> Extreme</span></div>
+      </div>
+    </div>
   </div>
-  <div id="sheetContent" style="margin-top:8px;"></div>
 </div>
 
-<!-- Legend with Sequential Column Ordering -->
+<!-- Desktop Legend Floating Box -->
 <div class="legend">
   <div class="legend-title">ST-GNN Grid Risk Index</div>
   <div class="legend-sub">Normalized Risk Tiers [0.00 – 1.00]</div>
@@ -200,7 +352,6 @@
     <span>0.0</span><span>0.2</span><span>0.4</span><span>0.6</span><span>0.8</span><span>1.0</span>
   </div>
   <div class="legend-cols">
-    <!-- Left Column: 0.0 to 0.5 -->
     <div class="legend-col">
       <div class="legend-class"><div class="dot" style="background:#10b981;"></div><span><b>0.0-0.1:</b> Minimal</span></div>
       <div class="legend-class"><div class="dot" style="background:#84cc16;"></div><span><b>0.1-0.2:</b> Light</span></div>
@@ -208,7 +359,6 @@
       <div class="legend-class"><div class="dot" style="background:#facc15;"></div><span><b>0.3-0.4:</b> Low Mod</span></div>
       <div class="legend-class"><div class="dot" style="background:#f59e0b;"></div><span><b>0.4-0.5:</b> Moderate</span></div>
     </div>
-    <!-- Right Column: 0.5 to 1.0 -->
     <div class="legend-col">
       <div class="legend-class"><div class="dot" style="background:#fb923c;"></div><span><b>0.5-0.6:</b> Mod-High</span></div>
       <div class="legend-class"><div class="dot" style="background:#ea580c;"></div><span><b>0.6-0.7:</b> High</span></div>
@@ -220,16 +370,18 @@
 </div>
 
 <script>
-  const map = L.map('map').setView([33.9, -118.25], 10);
+  const map = L.map('map', { zoomControl: false }).setView([33.9, -118.25], 10);
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
   }).addTo(map);
 
   // Custom Icon Definitions
-  const homeIcon = L.divIcon({ html: '<div class="custom-icon">🏠</div>', className: '', iconSize: [24, 24] });
-  const epicenterIcon = L.divIcon({ html: '<div class="custom-icon">💥</div>', className: '', iconSize: [28, 28] });
-  const hospitalIcon = L.divIcon({ html: '<div class="custom-icon">🏥</div>', className: '', iconSize: [22, 22] });
-  const shelterIcon = L.divIcon({ html: '<div class="custom-icon">🛡️</div>', className: '', iconSize: [22, 22] });
+  const homeIcon = L.divIcon({ html: '<div class="custom-icon">🏠</div>', className: '', iconSize: [26, 26] });
+  const epicenterIcon = L.divIcon({ html: '<div class="custom-icon">💥</div>', className: '', iconSize: [30, 30] });
+  const hospitalIcon = L.divIcon({ html: '<div class="custom-icon">🏥</div>', className: '', iconSize: [24, 24] });
+  const shelterIcon = L.divIcon({ html: '<div class="custom-icon">🛡️</div>', className: '', iconSize: [24, 24] });
 
   let userMarker = null, epicenterMarker = null, quakeCircle = null, rippleCircle = null;
   let gridLayerGroup = L.layerGroup().addTo(map);
@@ -238,6 +390,35 @@
 
   let currentEpicenter = { lat: 34.00, lon: -118.40 };
   let currentUser = { lat: 33.8358, lon: -118.3406 };
+
+  // Mobile Bottom Sheet Interaction Handlers
+  let isDrawerExpanded = false;
+  function toggleDrawer() {
+    const sidebar = document.getElementById('sidebar');
+    isDrawerExpanded = !isDrawerExpanded;
+    if (isDrawerExpanded) {
+      sidebar.classList.add('expanded');
+    } else {
+      sidebar.classList.remove('expanded');
+    }
+  }
+
+  function handleDrawerClick(e) {
+    if (window.innerWidth <= 950 && !isDrawerExpanded) {
+      // If tapped on header or non-interactive card area while collapsed, expand it
+      toggleDrawer();
+    }
+  }
+
+  // Collapse drawer when tapping map on mobile
+  map.on('click', function(e) {
+    if (window.innerWidth <= 950 && isDrawerExpanded) {
+      toggleDrawer();
+    }
+    currentEpicenter = { lat: e.latlng.lat, lon: e.latlng.lng };
+    epicenterMarker.setLatLng([currentEpicenter.lat, currentEpicenter.lon]);
+    runSimulation();
+  });
 
   function getRiskColor(risk) {
     if (risk < 0.1) return '#10b981';
@@ -261,15 +442,18 @@
     runSimulation();
   });
 
-  // Click map anywhere to set Epicenter
-  map.on('click', function(e) {
-    currentEpicenter = { lat: e.latlng.lat, lon: e.latlng.lng };
-    epicenterMarker.setLatLng([currentEpicenter.lat, currentEpicenter.lon]);
-    runSimulation();
-  });
-
   function geocodeAddress() {
     const addr = document.getElementById('address').value;
+    fetchAddress(addr);
+  }
+
+  function applyMobileAddress() {
+    const addr = document.getElementById('mobileAddressInput').value;
+    document.getElementById('address').value = addr;
+    fetchAddress(addr);
+  }
+
+  function fetchAddress(addr) {
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}`)
       .then(res => res.json())
       .then(data => {
@@ -291,11 +475,11 @@
   }
 
   function focusHome() {
-    if (userMarker) map.setView([currentUser.lat, currentUser.lon], 11);
+    if (userMarker) map.setView([currentUser.lat, currentUser.lon], 11, { animate: true });
   }
 
   function focusEpicenter() {
-    map.setView([currentEpicenter.lat, currentEpicenter.lon], 11);
+    map.setView([currentEpicenter.lat, currentEpicenter.lon], 11, { animate: true });
   }
 
   function toggleTheme() {
@@ -304,37 +488,10 @@
     root.setAttribute('data-theme', isDark ? 'light' : 'dark');
   }
 
-  function toggleMobileSheet() {
-    const sheet = document.getElementById('mobileSheet');
-    const icon = document.getElementById('sheetToggleIcon');
-    if (window.innerWidth <= 900) {
-      const isCollapsed = sheet.style.display === 'none';
-      sheet.style.display = isCollapsed ? 'block' : 'none';
-      icon.innerText = isCollapsed ? '▾' : '▸';
-    }
-  }
-
   function setLoadingState(isLoading) {
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('loading', isLoading);
-    document.getElementById('statusText').innerText = isLoading ? 'Running simulation…' : 'Ready';
-  }
-
-  function updateSheetContent(data) {
-    const sheet = document.getElementById('mobileSheet');
-    const content = document.getElementById('sheetContent');
-    if (window.innerWidth <= 900) {
-      sheet.style.display = 'block';
-      content.innerHTML = `
-        <div style="font-size:0.84rem; color:#d1d5db; line-height:1.5;">
-          <div><b>Shake radius:</b> ${data.radius_of_effect_km.toFixed(1)} km</div>
-          <div><b>Damaged structures:</b> ${data.damaged_buildings.toLocaleString()}</div>
-          <div><b>Economic loss:</b> ${data.economic_loss}</div>
-        </div>
-      `;
-    } else {
-      sheet.style.display = 'none';
-    }
+    document.getElementById('statusText').innerText = isLoading ? 'Running ST-GNN simulation…' : 'Ready';
   }
 
   function runSimulation() {
@@ -359,20 +516,18 @@
     .then(data => {
       setLoadingState(false);
       document.getElementById('statusText').innerText = `Risk updated · ${data.radius_of_effect_km.toFixed(1)} km`;
-      updateSheetContent(data);
 
       // 1. Regional Metrics
       document.getElementById('radiusVal').innerText = `${data.radius_of_effect_km} km`;
       document.getElementById('buildingsVal').innerText = data.damaged_buildings.toLocaleString();
       document.getElementById('elVal').innerText = data.economic_loss;
 
-      // 2. Wave Boundary & Synchronized Pulsing Geographic Ripple
+      // 2. Wave Boundary & Pulsing Ripple
       if (quakeCircle) map.removeLayer(quakeCircle);
       if (rippleCircle) map.removeLayer(rippleCircle);
 
       const radiusMeters = data.radius_of_effect_km * 1000;
 
-      // Main Hazard Limit Ring
       quakeCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
         color: '#ef4444',
         fillColor: '#ef4444',
@@ -381,7 +536,6 @@
         weight: 1.5
       }).addTo(map);
 
-      // Expanding Pulsing Ripple Ring
       rippleCircle = L.circle([currentEpicenter.lat, currentEpicenter.lon], {
         color: '#f87171',
         fillColor: '#ef4444',
@@ -390,7 +544,7 @@
         interactive: false
       }).addTo(map);
 
-      // 3. Render Dynamic Grid Risk Points
+      // 3. Grid Risk Points
       gridLayerGroup.clearLayers();
       data.predictions.forEach(pt => {
         const color = getRiskColor(pt.predicted_risk);
@@ -399,7 +553,7 @@
         }).bindTooltip(`Risk Score: <b>${(pt.predicted_risk * 100).toFixed(1)}%</b>`).addTo(gridLayerGroup);
       });
 
-      // 4. Render Evacuation Centers & High-Contrast White Dashed Routes
+      // 4. Evacuation Centers & Routes
       hubLayerGroup.clearLayers();
       routeLayerGroup.clearLayers();
       
@@ -412,34 +566,34 @@
 
         marker.bindTooltip(`<b>${hub.name}</b><br>Type: ${hub.type}<br>Distance: ${hub.distance_from_user_km} km<br>Status: <b>${hub.safety_rating}</b>`);
 
-        // Draw High-Contrast White Dashed Line with Underlay Shadow to Top 3 Facilities
         if (idx < 3) {
           const coords = [[currentUser.lat, currentUser.lon], [hub.lat, hub.lon]];
-          
-          // Underlay Shadow Polyline
-          L.polyline(coords, {
-            color: '#000000', weight: 5, opacity: 0.6
-          }).addTo(routeLayerGroup);
-
-          // Prominent White Dashed Polyline
-          L.polyline(coords, {
-            color: '#ffffff', weight: 3, dashArray: '6, 8', opacity: 0.95
-          }).addTo(routeLayerGroup);
+          L.polyline(coords, { color: '#000000', weight: 5, opacity: 0.6 }).addTo(routeLayerGroup);
+          L.polyline(coords, { color: '#ffffff', weight: 3, dashArray: '6, 8', opacity: 0.95 }).addTo(routeLayerGroup);
         }
 
-        // Render Sidebar Cards
         const item = document.createElement('div');
         item.className = `facility-item ${hub.is_outside_impact_zone ? '' : 'compromised'}`;
+        item.onclick = () => {
+          map.setView([hub.lat, hub.lon], 13, { animate: true });
+          if (window.innerWidth <= 950 && isDrawerExpanded) toggleDrawer();
+        };
         item.innerHTML = `
-          <div class="facility-title">${hub.type === "Hospital" ? '🏥' : '🛡️'} ${hub.name}</div>
-          <div class="facility-meta">Distance: <b>${hub.distance_from_user_km} km</b> | Status: <span style="color:${hub.is_outside_impact_zone ? '#10b981' : '#ef4444'}; font-weight:600;">${hub.safety_rating}</span></div>
+          <div class="facility-title">
+            <span>${hub.type === "Hospital" ? '🏥' : '🛡️'} ${hub.name}</span>
+            <span style="font-size:0.75rem; color:${hub.is_outside_impact_zone ? '#10b981' : '#ef4444'}; font-weight:700;">${hub.safety_rating}</span>
+          </div>
+          <div class="facility-meta">
+            <span>Distance: <b>${hub.distance_from_user_km} km</b></span>
+            <span>${hub.type}</span>
+          </div>
         `;
         facilityContainer.appendChild(item);
       });
 
       // 5. Personal Hazard Analysis
       if(data.personal_impact) {
-        document.getElementById('userDist').innerText = `${data.personal_impact.distance_to_epicenter_km} km (${data.personal_impact.in_hazard_zone ? 'Inside Hazard Zone' : 'Outside Hazard Zone'})`;
+        document.getElementById('userDist').innerText = `${data.personal_impact.distance_to_epicenter_km} km`;
         document.getElementById('userProb').innerText = data.personal_impact.critical_impact_probability;
         document.getElementById('userStatus').innerText = data.personal_impact.structural_collapse_risk;
         document.getElementById('userEscape').innerText = data.personal_impact.escape_feasibility;
@@ -452,11 +606,15 @@
           hList.appendChild(li);
         });
       }
+    })
+    .catch(err => {
+      setLoadingState(false);
+      console.error("Simulation request error:", err);
     });
   }
 
   // Initial Run
-  geocodeAddress();
+  fetchAddress("Los Angeles, California");
 </script>
 </body>
 </html>
