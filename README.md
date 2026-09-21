@@ -1,6 +1,6 @@
 SEISMIC INTERACTIVE PROJECT:
 
-Deployed on Render: seismicinteractive.onrender.com
+Deployed on Render: [link](https://seismicinteractive.onrender.com)
 Takes around 50-60s to load on the first visit
 
 EnhancedNoteGenerationLSTM - LSTM Music Generator Project:
