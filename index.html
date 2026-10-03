@@ -333,8 +333,9 @@
 
 <script>
   const map = L.map('map').setView([33.9, -118.25], 10);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=cb1_488y_1_1198cb552121e42177dcfddb', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19
+  L.tileLayer('https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=cb1_488y_1_1198cb552121e42177dcfddb', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  maxZoom: 19
   }).addTo(map);
 
   // Custom Icon Definitions
